@@ -1,0 +1,83 @@
+name: Build GMD Windows
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows-x64:
+    name: Build GMD Windows x64 NSIS
+    runs-on: windows-latest
+    env:
+      VITE_GMD_UPDATER_ENABLED: "true"
+
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: sidecars/cockpit-cliproxy/go.mod
+          cache-dependency-path: sidecars/cockpit-cliproxy/go.sum
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Sync package versions
+        run: npm run sync-version
+
+      - name: Check Tauri updater signing secrets
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "${TAURI_SIGNING_PRIVATE_KEY}" || {
+            echo "Missing repository secret TAURI_SIGNING_PRIVATE_KEY" >&2
+            exit 1
+          }
+          test -n "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD}" || {
+            echo "Missing repository secret TAURI_SIGNING_PRIVATE_KEY_PASSWORD" >&2
+            exit 1
+          }
+
+      - name: Build Windows NSIS installer
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: npx tauri build --ci --target x86_64-pc-windows-msvc --bundles nsis
+
+      - name: Stage GMD release assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf release-assets
+          node scripts/release/stage_release_assets.cjs \
+            --platform windows \
+            --assets-dir target/x86_64-pc-windows-msvc/release/bundle \
+            --output-dir release-assets
+          test -n "$(find release-assets -maxdepth 1 -type f -name '*-setup.exe' -print -quit)"
+          find release-assets -maxdepth 1 -type f -printf '%f %s bytes\n' | sort
+
+      - name: Upload GMD Windows package
+        uses: actions/upload-artifact@v4
+        with:
+          name: gmd-account-manager-windows-x64-${{ github.run_number }}
+          path: release-assets/*
+          if-no-files-found: error
+          retention-days: 30

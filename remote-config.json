@@ -1,0 +1,10 @@
+{
+  "version": "gmd-local-1",
+  "refreshIntervalMs": 3600000,
+  "updatePrompt": {
+    "mode": "normal",
+    "targetVersions": "*",
+    "targetOs": ["windows", "macos", "linux"]
+  },
+  "rules": []
+}

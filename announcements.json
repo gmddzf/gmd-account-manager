@@ -1,0 +1,38 @@
+{
+  "version": "1.0",
+  "forceRefreshVersions": [],
+  "topRightAd": null,
+  "apiRelayEnabled": true,
+  "topRightAdsEnabled": false,
+  "topRightAds": [],
+  "sponsorModule": {
+    "enabled": true,
+    "entryVisible": true,
+    "title": "GMD Relay",
+    "subtitle": "Manage custom relay addresses and API keys.",
+    "targetVersions": "*",
+    "targetLanguages": ["*"],
+    "createdAt": "2026-08-14T00:00:00Z",
+    "expiresAt": null,
+    "locales": {
+      "zh-CN": {
+        "title": "GMD 中转管理",
+        "subtitle": "管理自定义中转地址和 API Key。"
+      },
+      "zh-TW": {
+        "title": "GMD 中轉管理",
+        "subtitle": "管理自訂中轉位址和 API Key。"
+      },
+      "en": {
+        "title": "GMD Relay",
+        "subtitle": "Manage custom relay addresses and API keys."
+      },
+      "en-US": {
+        "title": "GMD Relay",
+        "subtitle": "Manage custom relay addresses and API keys."
+      }
+    },
+    "sponsors": []
+  },
+  "announcements": []
+}
