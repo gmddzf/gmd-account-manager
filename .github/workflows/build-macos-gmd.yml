@@ -71,7 +71,7 @@ jobs:
             --assets-dir target/universal-apple-darwin/release/bundle \
             --output-dir release-assets
           test -n "$(find release-assets -maxdepth 1 -type f -name '*.dmg' -print -quit)"
-          find release-assets -maxdepth 1 -type f -printf '%f %s bytes\n' | sort
+          find release-assets -maxdepth 1 -type f -exec stat -f '%N %z bytes' {} + | sort
 
       - name: Upload GMD macOS package
         uses: actions/upload-artifact@v4
