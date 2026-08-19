@@ -7,6 +7,16 @@ All notable changes to GMD Account Manager will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
+## [1.3.24] - 2026-08-20
+
+### Added
+
+- **Codex 272K cost guard for long-context pricing**: all context quick-config entry points now offer a `272K` preset that writes `model_context_window = 272000` and compacts at `240000`, alongside the existing default, full `1M`, and custom modes. Existing `516K` values remain custom until the user explicitly saves another preset.
+
+### Fixed
+
+- **Carry the five-reconnect relay fix into the customer release**: old custom relay accounts are projected through the selected HTTP/SSE Responses provider instead of a stale top-level `openai_base_url`, preventing Codex from silently reconnecting to the previous WebSocket upstream.
+
 ## [1.3.23] - 2026-08-18
 
 ### Fixed

@@ -16,6 +16,7 @@ dist-ssr
 .cache/
 .temp/
 .artifacts/
+.release/
 .qa/
 .backup-*/
 .qa-*/

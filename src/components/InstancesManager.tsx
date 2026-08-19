@@ -62,6 +62,15 @@ import {
 import { CodexSpeedSelect } from "./codex/CodexSpeedSelect";
 import { SingleSelectDropdown } from "./SingleSelectDropdown";
 import type { CodexAppSpeed } from "../types/codex";
+import {
+  CODEX_CONTEXT_WINDOW_1M as CONTEXT_WINDOW_1M,
+  CODEX_DEFAULT_AUTO_COMPACT_TOKEN_LIMIT as DEFAULT_AUTO_COMPACT_TOKEN_LIMIT,
+  CODEX_QUICK_CONFIG_PRESETS,
+  parsePositiveInteger,
+  resolveCodexQuickConfigPresetId,
+  type CodexQuickConfigPresetId,
+  type CodexQuickConfigTarget,
+} from "../utils/codexQuickConfigPresets";
 
 type MessageState = { text: string; tone?: "error" };
 type AccountLike = {
@@ -195,69 +204,6 @@ const ACCOUNT_SELECT_PORTAL_SAFE_MARGIN = 12;
 const ACCOUNT_SELECT_PORTAL_MAX_HEIGHT = 320;
 const ACCOUNT_SELECT_PORTAL_MIN_HEIGHT = 140;
 const ACCOUNT_SELECT_PORTAL_Z_INDEX = 10020;
-const DEFAULT_AUTO_COMPACT_TOKEN_LIMIT = 900000;
-const CONTEXT_WINDOW_516K = 516000;
-const AUTO_COMPACT_TOKEN_LIMIT_516K = 460000;
-const CONTEXT_WINDOW_1M = 1000000;
-const AUTO_COMPACT_TOKEN_LIMIT_1M = 900000;
-
-type CodexQuickConfigBuiltInPresetId = "default" | "preset_516k" | "preset_1m";
-type CodexQuickConfigPresetId = CodexQuickConfigBuiltInPresetId | "custom";
-
-interface CodexQuickConfigTarget {
-  modelContextWindow: number | null;
-  autoCompactTokenLimit: number | null;
-}
-
-const CODEX_QUICK_CONFIG_PRESETS: Record<
-  CodexQuickConfigBuiltInPresetId,
-  CodexQuickConfigTarget
-> = {
-  default: {
-    modelContextWindow: null,
-    autoCompactTokenLimit: null,
-  },
-  preset_516k: {
-    modelContextWindow: CONTEXT_WINDOW_516K,
-    autoCompactTokenLimit: AUTO_COMPACT_TOKEN_LIMIT_516K,
-  },
-  preset_1m: {
-    modelContextWindow: CONTEXT_WINDOW_1M,
-    autoCompactTokenLimit: AUTO_COMPACT_TOKEN_LIMIT_1M,
-  },
-};
-
-const parsePositiveInteger = (value: string): number | null => {
-  const parsed = Number.parseInt(value.trim(), 10);
-  if (!Number.isFinite(parsed) || parsed <= 0) return null;
-  return parsed;
-};
-
-const resolveCodexQuickConfigPresetId = (
-  modelContextWindow: number | null,
-  autoCompactTokenLimit: number | null,
-): CodexQuickConfigPresetId => {
-  if (modelContextWindow === null && autoCompactTokenLimit === null) {
-    return "default";
-  }
-  if (
-    modelContextWindow ===
-      CODEX_QUICK_CONFIG_PRESETS.preset_516k.modelContextWindow &&
-    autoCompactTokenLimit ===
-      CODEX_QUICK_CONFIG_PRESETS.preset_516k.autoCompactTokenLimit
-  ) {
-    return "preset_516k";
-  }
-  if (
-    modelContextWindow ===
-      CODEX_QUICK_CONFIG_PRESETS.preset_1m.modelContextWindow &&
-    autoCompactTokenLimit ===
-      CODEX_QUICK_CONFIG_PRESETS.preset_1m.autoCompactTokenLimit
-  ) {
-    return "preset_1m";
-  }
-  return "custom";
-};
 
 const normalizeInstanceAccountTag = (tag: string) => tag.trim().toLowerCase();
 
@@ -1805,11 +1751,11 @@ export function InstancesManager<TAccount extends AccountLike>({
         ),
       },
       {
-        id: "preset_516k" as CodexQuickConfigPresetId,
-        label: t("instances.form.codexQuickConfig.preset516kShort", "516K"),
+        id: "preset_272k" as CodexQuickConfigPresetId,
+        label: t("instances.form.codexQuickConfig.preset272kShort", "272K 费用保护"),
         desc: t(
-          "instances.form.codexQuickConfig.preset516kDesc",
-          "context=516000 / compact=460000",
+          "instances.form.codexQuickConfig.preset272kDesc",
+          "context=272000 / compact=240000",
         ),
       },
       {
@@ -3307,7 +3253,7 @@ export function InstancesManager<TAccount extends AccountLike>({
                       <p className="form-hint">
                         {t(
                           "instances.form.codexQuickConfig.presetHint",
-                          "可直接选择预设（默认 / 516K / 1M），或切到自定义手动填写两个字段。",
+                          "可直接选择预设（默认 / 272K 费用保护 / 1M），或切到自定义手动填写两个字段。",
                         )}
                       </p>
                       <div className="instance-codex-quick-fields">
