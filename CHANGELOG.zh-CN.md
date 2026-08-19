@@ -15,7 +15,7 @@
 
 ### 修复
 
-- **将反复重连 5 次的中转修复纳入正式客户版**：旧自定义中转账号会使用当前选中的 HTTP/SSE Responses provider，不再被残留的顶层 `openai_base_url` 带回上一个 WebSocket 中转地址。
+- **将反复重连 5 次的中转修复纳入正式客户版**：旧自定义中转账号会使用当前选中的 HTTP/SSE Responses provider，不再被残留的顶层 `openai_base_url` 带回上一个 WebSocket 中转地址；GMD 管理的 provider 会把请求与流重试上限设为 1，中转不可用时立即显示真实错误，不再重复同一失败 5 次。
 
 ## [1.3.23] - 2026-08-18
 

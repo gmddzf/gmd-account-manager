@@ -37,6 +37,8 @@ const API_KEY_AUTH_MODE: &str = "apikey";
 const CODEX_ACCOUNT_GROUPS_FILE: &str = "codex_account_groups.json";
 const CODEX_CONFIG_FILE_NAME: &str = "config.toml";
 const CODEX_CONFIG_OPENAI_BASE_URL_KEY: &str = "openai_base_url";
+const CODEX_MANAGED_REQUEST_MAX_RETRIES: i64 = 1;
+const CODEX_MANAGED_STREAM_MAX_RETRIES: i64 = 1;
 const CODEX_CONFIG_MODEL_PROVIDER_KEY: &str = "model_provider";
 const CODEX_CONFIG_MODEL_PROVIDERS_KEY: &str = "model_providers";
 const CODEX_CONFIG_MODEL_CATALOG_JSON_KEY: &str = "model_catalog_json";
@@ -2154,6 +2156,8 @@ fn write_api_provider_to_config_toml_with_options(
             provider_table["wire_api"] = value(CODEX_PROVIDER_WIRE_API);
             provider_table["requires_openai_auth"] = value(false);
             provider_table["supports_websockets"] = value(false);
+            provider_table["request_max_retries"] = value(CODEX_MANAGED_REQUEST_MAX_RETRIES);
+            provider_table["stream_max_retries"] = value(CODEX_MANAGED_STREAM_MAX_RETRIES);
         }
     }
 
@@ -2579,6 +2583,8 @@ fn write_api_key_bearer_provider_override_to_config_toml(
     provider_table["requires_openai_auth"] = value(require_openai_auth);
     provider_table[CODEX_CONFIG_EXPERIMENTAL_BEARER_TOKEN_KEY] = value(bearer_token);
     provider_table["supports_websockets"] = value(supports_websockets);
+    provider_table["request_max_retries"] = value(CODEX_MANAGED_REQUEST_MAX_RETRIES);
+    provider_table["stream_max_retries"] = value(CODEX_MANAGED_STREAM_MAX_RETRIES);
     let is_local_access_loopback = provider_config.provider_id.as_deref()
         == Some(CODEX_RUNTIME_MODEL_PROVIDER_ID)
         && is_loopback_http_base_url(Some(base_url));
@@ -13274,6 +13280,8 @@ multi_agent = true
         assert!(content.contains("wire_api = \"responses\""));
         assert!(content.contains("requires_openai_auth = false"));
         assert!(content.contains("supports_websockets = false"));
+        assert!(content.contains("request_max_retries = 1"));
+        assert!(content.contains("stream_max_retries = 1"));
         assert!(!content.contains("openai_base_url"));
         assert_eq!(
             read_api_provider_from_config_toml(&base_dir),
@@ -13341,6 +13349,8 @@ multi_agent = true
         assert!(content.contains("model_provider = \"codex_local_access\""));
         assert!(content.contains("base_url = \"https://relay.example.com/v1\""));
         assert!(content.contains("supports_websockets = false"));
+        assert!(content.contains("request_max_retries = 1"));
+        assert!(content.contains("stream_max_retries = 1"));
         assert!(content.contains("requires_openai_auth = true"));
         assert!(!content.contains("openai_base_url"));
         assert!(!content.contains("[model_providers.relay]"));
@@ -13386,6 +13396,8 @@ multi_agent = true
         assert!(content.contains("base_url = \"https://relay-missing-wire.example/v1\""));
         assert!(content.contains("wire_api = \"responses\""));
         assert!(content.contains("supports_websockets = false"));
+        assert!(content.contains("request_max_retries = 1"));
+        assert!(content.contains("stream_max_retries = 1"));
         assert!(!content.contains("openai_base_url"));
 
         fs::remove_dir_all(&base_dir).expect("cleanup temp dir");
@@ -13416,6 +13428,8 @@ multi_agent = true
         assert!(config.contains("model_provider = \"codex_local_access\""));
         assert!(config.contains("base_url = \"https://relay-a.example.com/v1\""));
         assert!(config.contains("supports_websockets = false"));
+        assert!(config.contains("request_max_retries = 1"));
+        assert!(config.contains("stream_max_retries = 1"));
         assert!(!config.contains("openai_base_url"));
 
         sync_api_key_account_from_local_state(&mut first, &base_dir);
@@ -13445,6 +13459,8 @@ multi_agent = true
         assert!(config.contains("model_provider = \"codex_local_access\""));
         assert!(config.contains("base_url = \"https://relay-b.example.com/v1\""));
         assert!(config.contains("supports_websockets = false"));
+        assert!(config.contains("request_max_retries = 1"));
+        assert!(config.contains("stream_max_retries = 1"));
         assert!(!config.contains("relay-a.example.com"));
         assert!(!config.contains("openai_base_url"));
 

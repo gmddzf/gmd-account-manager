@@ -15,7 +15,7 @@ The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ### Fixed
 
-- **Carry the five-reconnect relay fix into the customer release**: old custom relay accounts are projected through the selected HTTP/SSE Responses provider instead of a stale top-level `openai_base_url`, preventing Codex from silently reconnecting to the previous WebSocket upstream.
+- **Carry the five-reconnect relay fix into the customer release**: old custom relay accounts are projected through the selected HTTP/SSE Responses provider instead of a stale top-level `openai_base_url`. GMD-managed providers now cap request and stream retries at one, so an unavailable relay returns its real error promptly instead of repeating the same failure five times.
 
 ## [1.3.23] - 2026-08-18
 
