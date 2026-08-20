@@ -3008,7 +3008,7 @@
           "balance": "余额",
           "todayRequests": "今日请求",
           "todayTokens": "今日 Token",
-          "todayCost": "今日消耗",
+          "todayCost": "今日余额消耗",
           "totalRequests": "累计请求",
           "totalTokens": "累计 Token",
           "totalCost": "累计消耗",

@@ -5,6 +5,7 @@ import {
   classifyModelProviderUsageError,
   formatModelProviderUsageMoney,
   resolveNewApiQuotaSnapshot,
+  resolveModelProviderUsageMode,
   type ModelProviderUsageSummary,
 } from "./modelProviderUsageService.ts";
 
@@ -97,6 +98,16 @@ test("new_api quota ignores malformed numeric details", () => {
 
 test("token plan percentages render without currency decimals", () => {
   assert.equal(formatModelProviderUsageMoney(72, "%"), "72%");
+});
+
+test("today balance cost identifies a provider usage summary", () => {
+  assert.equal(
+    resolveModelProviderUsageMode(
+      summary({ todayCost: 1.25, unit: "USD" }),
+    ),
+    "sub2api",
+  );
+  assert.equal(formatModelProviderUsageMoney(1.25, "USD"), "$1.25");
 });
 
 test("classifies provider failures without exposing upstream response text", () => {

@@ -3321,7 +3321,10 @@ export function CodexModelProviderManager({
           "codex.modelProviders.usage.fields.todayTokens",
           "今日 Token",
         ),
-        todayCost: t("codex.modelProviders.usage.fields.todayCost", "今日消耗"),
+        todayCost: t(
+          "codex.modelProviders.usage.fields.todayCost",
+          "今日余额消耗",
+        ),
         totalRequests: t(
           "codex.modelProviders.usage.fields.totalRequests",
           "累计请求",
@@ -3915,11 +3918,12 @@ export function CodexModelProviderManager({
                           <strong>{usageRequestText}</strong>
                         </div>
                         <div>
-                          <span>{t("codex.modelProviders.usage.fields.todayTokens", "今日 Token")}</span>
+                          <span>{t("codex.modelProviders.usage.fields.todayCost", "今日余额消耗")}</span>
                           <strong>
-                            {typeof usageSummary?.todayTotalTokens === "number"
-                              ? usageSummary.todayTotalTokens.toLocaleString("en-US")
-                              : "-"}
+                            {formatUsageMoney(
+                              usageSummary?.todayCost,
+                              usageSummary?.unit,
+                            )}
                           </strong>
                         </div>
                       </div>
@@ -6030,7 +6034,13 @@ export function CodexModelProviderManager({
           usageMode === "new_api"
             ? new Set(["mode", "totalGranted", "totalAvailable", "expiresAt"])
             : usageMode === "sub2api"
-              ? new Set(["mode", "remaining", "todayRequests", "todayTokens"])
+              ? new Set([
+                  "mode",
+                  "remaining",
+                  "todayRequests",
+                  "todayTokens",
+                  "todayCost",
+                ])
             : usageMode === "deepseek"
                 ? new Set([
                     "isAvailable",
@@ -6219,9 +6229,12 @@ export function CodexModelProviderManager({
                     value: String(usageSummary?.todayRequests ?? 0),
                   },
                   {
-                    key: "todayTokens",
-                    label: t("codex.modelProviders.usage.fields.todayTokens", "今日 Token"),
-                    value: (usageSummary?.todayTotalTokens ?? 0).toLocaleString("en-US"),
+                    key: "todayCost",
+                    label: t("codex.modelProviders.usage.fields.todayCost", "今日余额消耗"),
+                    value: formatUsageMoney(
+                      usageSummary?.todayCost,
+                      usageSummary?.unit,
+                    ),
                   },
                 ]
               : [];

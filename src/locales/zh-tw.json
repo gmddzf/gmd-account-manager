@@ -3302,7 +3302,7 @@
           "balance": "餘額",
           "todayRequests": "今日請求",
           "todayTokens": "今日 Token",
-          "todayCost": "今日消耗",
+          "todayCost": "今日餘額消耗",
           "totalRequests": "累計請求",
           "totalTokens": "累計 Token",
           "totalCost": "累計消耗",

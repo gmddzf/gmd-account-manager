@@ -19,7 +19,13 @@ import {
   type CodexQuickConfigTarget as QuickConfigTarget,
 } from '../../utils/codexQuickConfigPresets';
 
-export function CodexQuickConfigCard({ onClose }: { onClose?: () => void }) {
+export function CodexQuickConfigCard({
+  onClose,
+  onSaved,
+}: {
+  onClose?: () => void;
+  onSaved?: (config: CodexQuickConfig) => void;
+}) {
   const { t } = useTranslation();
   useEscClose(true, onClose ?? (() => {}));
   const [configPath, setConfigPath] = useState('~/.codex/config.toml');
@@ -256,6 +262,7 @@ export function CodexQuickConfigCard({ onClose }: { onClose?: () => void }) {
         targetConfig.autoCompactTokenLimit ?? undefined,
       );
       applyLoadedConfig(saved);
+      onSaved?.(saved);
       setNotice(
         t(
           'codex.modelProviders.quickConfig.saveSuccess',
@@ -272,7 +279,7 @@ export function CodexQuickConfigCard({ onClose }: { onClose?: () => void }) {
     } finally {
       setSaving(false);
     }
-  }, [applyLoadedConfig, loading, saving, t, targetConfig, validationError]);
+  }, [applyLoadedConfig, loading, onSaved, saving, t, targetConfig, validationError]);
 
   return (
     <div className="modal-overlay">
@@ -287,6 +294,12 @@ export function CodexQuickConfigCard({ onClose }: { onClose?: () => void }) {
         <div className="modal-body">
           <p className="codex-quick-config-desc">
             {t('codex.modelProviders.quickConfig.desc', '这里的快捷项直接写入当前生效的 ~/.codex/config.toml，不会改动模型供应商仓库。')}
+          </p>
+          <p className="codex-quick-config-global-hint">
+            {t(
+              'codex.modelProviders.quickConfig.globalHint',
+              '这是当前 Codex 的全局上下文设置，所有账号共用；保存后重启 Codex 生效。',
+            )}
           </p>
 
           <div className="codex-quick-config-card__path">

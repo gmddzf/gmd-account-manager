@@ -56,6 +56,7 @@ import {
   ChevronDown,
   ShieldCheck,
   Minimize2,
+  SlidersHorizontal,
 } from "lucide-react";
 import { useCodexAccountStore } from "../stores/useCodexAccountStore";
 import { useCodexInstanceStore } from "../stores/useCodexInstanceStore";
@@ -112,6 +113,7 @@ import {
   type CodexFingerprintMode,
   type CodexBatchDeleteJobStatus,
   type CodexQuotaErrorInfo,
+  type CodexQuickConfig,
   type CodexResetCredit,
   type CodexResetCreditsSnapshot,
 } from "../types/codex";
@@ -191,6 +193,8 @@ import {
 } from "../utils/codexModelContextWindows";
 import { CodexSpeedSelect } from "../components/codex/CodexSpeedSelect";
 import { QuickSettingsPopover } from "../components/QuickSettingsPopover";
+import { CodexQuickConfigCard } from "../components/codex/CodexQuickConfigCard";
+import { resolveCodexQuickConfigPresetId } from "../utils/codexQuickConfigPresets";
 import { useProviderAccountsPage } from "../hooks/useProviderAccountsPage";
 import { usePlatformRuntimeSupport } from "../hooks/usePlatformRuntimeSupport";
 import { useEscClose } from "../hooks/useEscClose";
@@ -727,7 +731,8 @@ function resolveApiKeyUsageMode(
   }
   if (
     typeof summary.todayRequests === "number" ||
-    typeof summary.todayTotalTokens === "number"
+    typeof summary.todayTotalTokens === "number" ||
+    typeof summary.todayCost === "number"
   ) {
     return "sub2api";
   }
@@ -735,6 +740,7 @@ function resolveApiKeyUsageMode(
   if (
     detailKeys.has("todayRequests") ||
     detailKeys.has("todayTokens") ||
+    detailKeys.has("todayCost") ||
     detailKeys.has("remaining")
   ) {
     return "sub2api";
@@ -1040,6 +1046,37 @@ export function CodexAccountsPage() {
   const sponsorModule = useSponsorStore((state) => state.state.sponsorModule);
   const fetchSponsorState = useSponsorStore((state) => state.fetchState);
   const [activeTab, setActiveTab] = useState<CodexTab>("overview");
+  const [showCodexQuickConfigModal, setShowCodexQuickConfigModal] =
+    useState(false);
+  const [codexQuickConfig, setCodexQuickConfig] =
+    useState<CodexQuickConfig | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    void codexService
+      .getCodexQuickConfig()
+      .then((config) => {
+        if (!cancelled) setCodexQuickConfig(config);
+      })
+      .catch(() => {
+        // The account page can still be used when the native Codex config is unavailable.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+  const codexQuickConfigPresetId = useMemo(() => {
+    if (!codexQuickConfig) return null;
+    return resolveCodexQuickConfigPresetId(
+      codexQuickConfig.detected_model_context_window ?? null,
+      codexQuickConfig.detected_auto_compact_token_limit ?? null,
+    );
+  }, [codexQuickConfig]);
+  const openCodexQuickConfigModal = useCallback(() => {
+    setShowCodexQuickConfigModal(true);
+  }, []);
+  const handleCodexQuickConfigSaved = useCallback((config: CodexQuickConfig) => {
+    setCodexQuickConfig(config);
+  }, []);
   const [sessionWindowStats, setSessionWindowStats] = useState<{
     ready: boolean;
     byAccountId: Record<
@@ -1605,6 +1642,20 @@ export function CodexAccountsPage() {
     normalizeTag,
     saveJsonFile,
   } = page;
+  const codexQuickConfigLabel = useMemo(() => {
+    switch (codexQuickConfigPresetId) {
+      case "preset_272k":
+        return t("codex.modelProviders.quickConfig.preset272kShort", "272K");
+      case "preset_1m":
+        return t("codex.modelProviders.quickConfig.preset1mShort", "1M");
+      case "default":
+        return t("codex.modelProviders.quickConfig.presetDefaultShort", "默认");
+      case "custom":
+        return t("codex.modelProviders.quickConfig.presetCustomShort", "自定义");
+      default:
+        return t("codex.modelProviders.quickConfig.title", "上下文");
+    }
+  }, [codexQuickConfigPresetId, t]);
   const [isAllFilteredSelected, setIsAllFilteredSelected] = useState(false);
 
   /** Clear every overview filter so the table matches the full account total. */
@@ -8110,7 +8161,10 @@ export function CodexAccountsPage() {
           "codex.modelProviders.usage.fields.todayTokens",
           "今日 Token",
         ),
-        todayCost: t("codex.modelProviders.usage.fields.todayCost", "今日消耗"),
+        todayCost: t(
+          "codex.modelProviders.usage.fields.todayCost",
+          "今日余额消耗",
+        ),
         totalRequests: t(
           "codex.modelProviders.usage.fields.totalRequests",
           "累计请求",
@@ -8452,12 +8506,12 @@ export function CodexAccountsPage() {
               <div>
                 <span>
                   {t(
-                    "codex.modelProviders.usage.fields.todayTokens",
-                    "今日 Token",
+                    "codex.modelProviders.usage.fields.todayCost",
+                    "今日余额消耗",
                   )}
                 </span>
                 <strong>
-                  {formatCockpitApiTokenCount(summary.todayTotalTokens ?? 0)}
+                  {formatApiKeyUsageMoney(summary.todayCost, summary.unit)}
                 </strong>
               </div>
             </div>
@@ -8621,14 +8675,12 @@ export function CodexAccountsPage() {
                     <div>
                       <span>
                         {t(
-                          "codex.modelProviders.usage.fields.todayTokens",
-                          "今日 Token",
+                          "codex.modelProviders.usage.fields.todayCost",
+                          "今日余额消耗",
                         )}
                       </span>
                       <strong>
-                        {formatCockpitApiTokenCount(
-                          summary.todayTotalTokens ?? 0,
-                        )}
+                        {formatApiKeyUsageMoney(summary.todayCost, summary.unit)}
                       </strong>
                     </div>
                   </>
@@ -11313,6 +11365,37 @@ export function CodexAccountsPage() {
 
   // ─── Render helpers ──────────────────────────────────────────────────
 
+  const codexQuickConfigActionTitle = t(
+    "codex.modelProviders.quickConfig.cardActionTitle",
+    "上下文配置（默认 / 272K / 1M）",
+  );
+
+  const renderCodexQuickConfigAction = (className: string) => (
+    <button
+      type="button"
+      className={className}
+      onClick={openCodexQuickConfigModal}
+      title={codexQuickConfigActionTitle}
+      aria-label={codexQuickConfigActionTitle}
+    >
+      <SlidersHorizontal size={14} />
+    </button>
+  );
+
+  const renderCodexQuickConfigInlineButton = () => (
+    <button
+      type="button"
+      className="codex-context-config-inline"
+      onClick={openCodexQuickConfigModal}
+      title={codexQuickConfigActionTitle}
+      aria-label={codexQuickConfigActionTitle}
+    >
+      <SlidersHorizontal size={12} />
+      <span>{t("codex.modelProviders.quickConfig.title", "上下文")}</span>
+      <strong>{codexQuickConfigLabel}</strong>
+    </button>
+  );
+
   const renderCompactRows = (
     items: typeof filteredAccounts,
     groupKey?: string,
@@ -11492,6 +11575,7 @@ export function CodexAccountsPage() {
             "codex-compact-api-service-btn",
             13,
           )}
+          {renderCodexQuickConfigAction("codex-compact-context-config-btn")}
           {!isApiKeyAccount && (
             <button
               className={`codex-compact-note-btn ${hasCodexAccountNoteDetails(account) ? "has-note" : ""}`}
@@ -11844,6 +11928,9 @@ export function CodexAccountsPage() {
               )}
             </div>
           )}
+          <div className="account-sub-line codex-context-config-line">
+            {renderCodexQuickConfigInlineButton()}
+          </div>
           {shouldRenderQuotaSection && (
             <div className="codex-quota-section">
               {showApiKeyUsagePanel ? (
@@ -13349,6 +13436,7 @@ export function CodexAccountsPage() {
                   <Terminal size={14} />
                 )}
               </button>
+              {renderCodexQuickConfigAction("action-btn")}
               {renderAddLocalAccessAccountButton(account, "action-btn")}
               {isNewApiAccount && (
                 <button
@@ -13667,7 +13755,13 @@ export function CodexAccountsPage() {
       usageMode === "new_api"
         ? new Set(["mode", "totalGranted", "totalAvailable", "expiresAt"])
         : usageMode === "sub2api"
-          ? new Set(["mode", "remaining", "todayRequests", "todayTokens"])
+          ? new Set([
+              "mode",
+              "remaining",
+              "todayRequests",
+              "todayTokens",
+              "todayCost",
+            ])
         : usageMode === "deepseek"
             ? new Set(["mode", "totalBalance", "grantedBalance", "toppedUpBalance"])
             : usageMode === "token_plan"
@@ -13785,13 +13879,13 @@ export function CodexAccountsPage() {
                   : "-",
               },
               {
-                key: "todayTokens",
+                key: "todayCost",
                 label: t(
-                  "codex.modelProviders.usage.fields.todayTokens",
-                  "今日 Token",
+                  "codex.modelProviders.usage.fields.todayCost",
+                  "今日余额消耗",
                 ),
                 value: summary
-                  ? formatCockpitApiTokenCount(summary.todayTotalTokens ?? 0)
+                  ? formatApiKeyUsageMoney(summary.todayCost, summary.unit)
                   : "-",
               },
             ]
@@ -14322,6 +14416,13 @@ export function CodexAccountsPage() {
           "sessions",
         ]}
       />
+
+      {showCodexQuickConfigModal && (
+        <CodexQuickConfigCard
+          onClose={() => setShowCodexQuickConfigModal(false)}
+          onSaved={handleCodexQuickConfigSaved}
+        />
+      )}
 
       {batchImportOpen && createPortal(
           <div className="modal-overlay codex-batch-import-overlay">
@@ -15230,6 +15331,18 @@ export function CodexAccountsPage() {
                   <FolderOpen size={14} />
                 </button>
               )}
+              <button
+                type="button"
+                className="btn btn-secondary codex-context-config-toolbar-btn"
+                onClick={openCodexQuickConfigModal}
+                title={codexQuickConfigActionTitle}
+              >
+                <SlidersHorizontal size={14} />
+                <span>
+                  {t("codex.modelProviders.quickConfig.title", "上下文")}
+                </span>
+                <strong>{codexQuickConfigLabel}</strong>
+              </button>
               <QuickSettingsPopover type="codex" />
             </div>
           </div>

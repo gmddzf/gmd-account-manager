@@ -4540,7 +4540,8 @@
 }
 
 .codex-accounts-page .codex-compact-note-btn,
-.codex-accounts-page .codex-compact-api-service-btn {
+.codex-accounts-page .codex-compact-api-service-btn,
+.codex-accounts-page .codex-compact-context-config-btn {
   width: 22px;
   height: 22px;
   border-radius: var(--radius-md);
@@ -4557,7 +4558,8 @@
 
 .codex-accounts-page .codex-compact-note-btn:hover,
 .codex-accounts-page .codex-compact-note-btn.has-note,
-.codex-accounts-page .codex-compact-api-service-btn:hover:not(:disabled) {
+.codex-accounts-page .codex-compact-api-service-btn:hover:not(:disabled),
+.codex-accounts-page .codex-compact-context-config-btn:hover {
   color: var(--primary);
   border-color: rgba(37, 99, 235, 0.22);
   background: rgba(37, 99, 235, 0.08);
@@ -4566,6 +4568,48 @@
 .codex-accounts-page .codex-compact-api-service-btn:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+.codex-accounts-page .codex-context-config-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 23px;
+  padding: 3px 8px;
+  border: 1px solid rgba(37, 99, 235, 0.24);
+  border-radius: 999px;
+  background: rgba(37, 99, 235, 0.08);
+  color: var(--primary);
+  font-size: 11px;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.codex-accounts-page .codex-context-config-inline:hover {
+  background: rgba(37, 99, 235, 0.16);
+}
+
+.codex-accounts-page .codex-context-config-inline span {
+  white-space: nowrap;
+}
+
+.codex-accounts-page .codex-context-config-inline strong {
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.codex-accounts-page .codex-context-config-toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+
+.codex-accounts-page .codex-context-config-toolbar-btn strong {
+  color: var(--primary);
+  font-size: 11px;
 }
 
 .codex-accounts-page .codex-compact-switch-btn:hover:not(:disabled) {
@@ -7975,6 +8019,13 @@
   font-size: 13px;
   line-height: 1.6;
   color: var(--text-muted);
+}
+
+.codex-quick-config-modal .codex-quick-config-global-hint {
+  margin: -10px 0 18px;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--primary);
 }
 
 .codex-quick-config-modal .codex-quick-config-card__path {

@@ -2,7 +2,6 @@ import { useTranslation } from 'react-i18next';
 import {
   formatModelProviderUsageInteger,
   formatModelProviderUsageMoney,
-  formatModelProviderUsageTokenCount,
   resolveModelProviderUsageMode,
   type ModelProviderUsageSummary,
 } from '../../services/modelProviderUsageService';
@@ -96,7 +95,10 @@ export function ModelProviderUsagePanel({
     summary.unit,
   );
   const todayRequests = formatModelProviderUsageInteger(summary.todayRequests);
-  const todayTokens = formatModelProviderUsageTokenCount(summary.todayTotalTokens);
+  const todayBalanceCost = formatModelProviderUsageMoney(
+    summary.todayCost,
+    summary.unit,
+  );
 
   return (
     <div className={classNames}>
@@ -110,8 +112,8 @@ export function ModelProviderUsagePanel({
           <strong>{todayRequests}</strong>
         </div>
         <div>
-          <span>{t('codex.modelProviders.usage.fields.todayTokens', '今日 Token')}</span>
-          <strong>{todayTokens}</strong>
+          <span>{t('codex.modelProviders.usage.fields.todayCost', '今日余额消耗')}</span>
+          <strong>{todayBalanceCost}</strong>
         </div>
       </div>
     </div>

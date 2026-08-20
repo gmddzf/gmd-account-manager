@@ -117,6 +117,7 @@ import {
   refreshCodexApiKeyUsageForAccounts,
 } from '../services/codexApiKeyUsageRefreshService';
 import {
+  formatModelProviderUsageMoney,
   isModelProviderUsageUnavailableError,
   resolveNewApiQuotaSnapshot,
   type ModelProviderUsageSummary,
@@ -205,7 +206,8 @@ function resolveDashboardCodexApiUsageMode(
   }
   if (
     typeof summary.todayRequests === 'number' ||
-    typeof summary.todayTotalTokens === 'number'
+    typeof summary.todayTotalTokens === 'number' ||
+    typeof summary.todayCost === 'number'
   ) {
     return 'sub2api';
   }
@@ -213,6 +215,7 @@ function resolveDashboardCodexApiUsageMode(
   if (
     detailKeys.has('todayRequests') ||
     detailKeys.has('todayTokens') ||
+    detailKeys.has('todayCost') ||
     detailKeys.has('remaining')
   ) {
     return 'sub2api';
@@ -2378,8 +2381,8 @@ export function DashboardPage({
                     <strong>{usageSummary?.todayRequests ?? '-'}</strong>
                   </div>
                   <div className="codex-api-mini-stat">
-                    <span>{t('codex.modelProviders.usage.fields.todayTokens', '今日 Token')}</span>
-                    <strong>{typeof usageSummary?.todayTotalTokens === 'number' ? usageSummary.todayTotalTokens.toLocaleString('en-US') : '-'}</strong>
+                    <span>{t('codex.modelProviders.usage.fields.todayCost', '今日余额消耗')}</span>
+                    <strong>{formatModelProviderUsageMoney(usageSummary?.todayCost, usageSummary?.unit)}</strong>
                   </div>
                 </div>
               ) : usageMode === 'deepseek' ? (

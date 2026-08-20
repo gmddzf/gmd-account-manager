@@ -7,6 +7,12 @@ All notable changes to GMD Account Manager will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
+## [1.3.25] - 2026-08-20
+
+### Fixed
+
+- 修复一些已知 Bug。
+
 ## [1.3.24] - 2026-08-20
 
 ### Added

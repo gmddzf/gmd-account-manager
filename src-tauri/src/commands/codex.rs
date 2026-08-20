@@ -4620,6 +4620,31 @@ mod tests {
     }
 
     #[test]
+    fn sub2api_summary_parses_today_balance_cost() {
+        let summary = summarize_model_provider_usage(
+            &serde_json::json!({
+                "mode": "sub2api",
+                "unit": "USD",
+                "remaining": 8.75,
+                "usage": {
+                    "today": {
+                        "requests": 3,
+                        "total_tokens": 4096,
+                        "cost": 1.25
+                    }
+                }
+            }),
+            12,
+        );
+
+        assert_eq!(summary.today_cost, Some(1.25));
+        assert!(summary
+            .details
+            .iter()
+            .any(|item| item.key == "todayCost" && item.value == "1.25"));
+    }
+
+    #[test]
     fn new_api_usage_counters_accept_explicit_server_fields() {
         let subscription = serde_json::json!({
             "hard_limit_usd": 100.0,

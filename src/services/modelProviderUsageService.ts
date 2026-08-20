@@ -200,7 +200,8 @@ export function resolveModelProviderUsageMode(
   }
   if (
     typeof summary.todayRequests === 'number' ||
-    typeof summary.todayTotalTokens === 'number'
+    typeof summary.todayTotalTokens === 'number' ||
+    typeof summary.todayCost === 'number'
   ) {
     return 'sub2api';
   }
@@ -208,6 +209,7 @@ export function resolveModelProviderUsageMode(
   if (
     detailKeys.has('todayRequests') ||
     detailKeys.has('todayTokens') ||
+    detailKeys.has('todayCost') ||
     detailKeys.has('remaining')
   ) {
     return 'sub2api';
