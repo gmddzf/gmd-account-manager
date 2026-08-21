@@ -99,6 +99,7 @@ import {
   renameApiKeyOnCodexModelProvider,
   updateApiKeyOnCodexModelProvider,
   queryCodexModelProviderUsage,
+  resolveCodexModelProviderUsageIdentity,
   saveCodexModelProviderDetectedIntegrationType,
   testCodexModelProviderConnection,
   testCodexModelProviderChatBatch,
@@ -2299,6 +2300,10 @@ export function CodexModelProviderManager({
             baseUrl: savedProvider.baseUrl,
             apiKey: newApiKey,
             integrationType: savedProvider.integrationType ?? null,
+            usageIdentity: resolveCodexModelProviderUsageIdentity({
+              provider: savedProvider,
+              apiKey: newApiKey,
+            }),
           });
           setProviderUsageMap((previous) => ({
             ...previous,
@@ -3186,6 +3191,10 @@ export function CodexModelProviderManager({
           baseUrl: provider.baseUrl,
           apiKey: apiKey.apiKey,
           integrationType: provider.integrationType ?? null,
+          usageIdentity: resolveCodexModelProviderUsageIdentity({
+            provider,
+            apiKey: apiKey.apiKey,
+          }),
         });
         if (
           (summary.mode === "sub2api" || summary.mode === "new_api") &&
@@ -3323,7 +3332,7 @@ export function CodexModelProviderManager({
         ),
         todayCost: t(
           "codex.modelProviders.usage.fields.todayCost",
-          "今日余额消耗",
+          "今日消耗额度",
         ),
         totalRequests: t(
           "codex.modelProviders.usage.fields.totalRequests",
@@ -3918,7 +3927,7 @@ export function CodexModelProviderManager({
                           <strong>{usageRequestText}</strong>
                         </div>
                         <div>
-                          <span>{t("codex.modelProviders.usage.fields.todayCost", "今日余额消耗")}</span>
+                          <span>{t("codex.modelProviders.usage.fields.todayCost", "今日消耗额度")}</span>
                           <strong>
                             {formatUsageMoney(
                               usageSummary?.todayCost,
@@ -3968,6 +3977,31 @@ export function CodexModelProviderManager({
                             ? `${t("codex.modelProviders.usage.fields.expiresAt", "过期时间")} ${new Date(expiresAt * 1000).toLocaleDateString()}`
                             : t("dashboard.noData", "暂无数据")}
                         </span>
+                      </div>
+                      <div className="codex-api-key-usage-grid daily-quota">
+                        <div>
+                          <span>
+                            {t(
+                              "codex.modelProviders.usage.fields.todayRequests",
+                              "今日请求",
+                            )}
+                          </span>
+                          <strong>{usageRequestText}</strong>
+                        </div>
+                        <div>
+                          <span>
+                            {t(
+                              "codex.modelProviders.usage.fields.todayCost",
+                              "今日消耗额度",
+                            )}
+                          </span>
+                          <strong>
+                            {formatUsageMoney(
+                              usageSummary?.todayCost,
+                              usageSummary?.unit,
+                            )}
+                          </strong>
+                        </div>
                       </div>
                     </div>
                   ) : (
@@ -4740,10 +4774,10 @@ export function CodexModelProviderManager({
                                 defaultValue: "引用账号 {{count}} 个",
                                 count: providerReferenceMap.get(provider.id) ?? 0,
                               })}
-                            </span>
-                          </div>
+                          </span>
                         </div>
                       </div>
+                    </div>
                       <div className="codex-custom-sort-row-actions">
                         <button
                           type="button"
@@ -6032,7 +6066,14 @@ export function CodexModelProviderManager({
             : provider.integrationType ?? null;
         const coreDetailKeys =
           usageMode === "new_api"
-            ? new Set(["mode", "totalGranted", "totalAvailable", "expiresAt"])
+            ? new Set([
+                "mode",
+                "totalGranted",
+                "totalAvailable",
+                "todayRequests",
+                "todayCost",
+                "expiresAt",
+              ])
             : usageMode === "sub2api"
               ? new Set([
                   "mode",
@@ -6200,6 +6241,28 @@ export function CodexModelProviderManager({
                   ),
                 },
                 {
+                  key: "todayRequests",
+                  label: t(
+                    "codex.modelProviders.usage.fields.todayRequests",
+                    "今日请求",
+                  ),
+                  value:
+                    usageSummary?.todayRequests == null
+                      ? "-"
+                      : String(usageSummary.todayRequests),
+                },
+                {
+                  key: "todayCost",
+                  label: t(
+                    "codex.modelProviders.usage.fields.todayCost",
+                    "今日消耗额度",
+                  ),
+                  value: formatUsageMoney(
+                    usageSummary?.todayCost,
+                    usageSummary?.unit,
+                  ),
+                },
+                {
                   key: "expiresAt",
                   label: t("codex.modelProviders.usage.fields.expiresAt", "过期时间"),
                   value: formatUsageDetailValue(
@@ -6226,11 +6289,14 @@ export function CodexModelProviderManager({
                   {
                     key: "todayRequests",
                     label: t("codex.modelProviders.usage.fields.todayRequests", "今日请求"),
-                    value: String(usageSummary?.todayRequests ?? 0),
+                    value:
+                      usageSummary?.todayRequests == null
+                        ? "-"
+                        : String(usageSummary.todayRequests),
                   },
                   {
                     key: "todayCost",
-                    label: t("codex.modelProviders.usage.fields.todayCost", "今日余额消耗"),
+                    label: t("codex.modelProviders.usage.fields.todayCost", "今日消耗额度"),
                     value: formatUsageMoney(
                       usageSummary?.todayCost,
                       usageSummary?.unit,

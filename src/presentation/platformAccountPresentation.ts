@@ -166,6 +166,7 @@ export interface UnifiedQuotaMetric {
     outputTokens: number;
     totalTokens: number;
     estimatedCostUsd: number;
+    costAvailable?: boolean;
     userCostUsd?: number | null;
   };
 }

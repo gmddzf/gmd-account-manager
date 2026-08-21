@@ -13,6 +13,10 @@ import {
   isCodexChatCompletionsApiKeyAccount,
   isCodexNewApiAccount,
 } from "../types/codex.ts";
+import {
+  resolveKnownGmdRelayUsageIntegrationType,
+  type ModelProviderUsageIntegrationType,
+} from "../services/modelProviderUsageService.ts";
 
 export const DEEPSEEK_ACCESS_MODE_GATEWAY = "gateway";
 export const DEEPSEEK_ACCESS_MODE_DIRECT = "direct";
@@ -98,10 +102,14 @@ export function isCodexApiKeyUsageQueryEligible(
   account: CodexAccount,
 ): boolean {
   const tokenPlan = isCodexTokenPlanAccount(account);
+  const knownRelayUsageType = resolveKnownGmdRelayUsageIntegrationType(
+    account.api_base_url,
+  );
   return (
     isCodexApiKeyAccount(account) &&
-    !isCodexNewApiAccount(account) &&
-    (!isCodexChatCompletionsApiKeyAccount(account) ||
+    (!isCodexNewApiAccount(account) || knownRelayUsageType !== null) &&
+    (knownRelayUsageType !== null ||
+      !isCodexChatCompletionsApiKeyAccount(account) ||
       isDeepSeekAccount(account) ||
       tokenPlan) &&
     Boolean(account.openai_api_key?.trim())
@@ -111,13 +119,25 @@ export function isCodexApiKeyUsageQueryEligible(
 export function shouldShowCodexApiKeyUsagePanel(
   account: CodexAccount,
   hideRelayQuota = false,
+  integrationType?: ModelProviderUsageIntegrationType | null,
 ): boolean {
-  if (!isCodexApiKeyAccount(account) || isCodexNewApiAccount(account)) {
+  const knownRelayUsageType =
+    integrationType ??
+    resolveKnownGmdRelayUsageIntegrationType(account.api_base_url);
+  if (
+    !isCodexApiKeyAccount(account) ||
+    (isCodexNewApiAccount(account) && knownRelayUsageType === null)
+  ) {
     return false;
   }
   const deepseek = isDeepSeekAccount(account);
   const tokenPlan = isCodexTokenPlanAccount(account);
-  if (isCodexChatCompletionsApiKeyAccount(account) && !deepseek && !tokenPlan) {
+  if (
+    isCodexChatCompletionsApiKeyAccount(account) &&
+    knownRelayUsageType === null &&
+    !deepseek &&
+    !tokenPlan
+  ) {
     return false;
   }
   return !hideRelayQuota || deepseek || tokenPlan;

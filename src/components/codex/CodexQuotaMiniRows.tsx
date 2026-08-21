@@ -51,7 +51,9 @@ function CodexQuotaMiniRow({
                 "账号计费（按模型价格估算）",
               )}
             >
-              A ${formatCodexWindowCostDisplay(stats)}
+              {t("codex.quota.windowAccountCostShort", "本机估算")} ${
+                formatCodexWindowCostDisplay(stats)
+              }
             </span>
             {stats.userCostUsd != null ? (
               <span
@@ -70,8 +72,14 @@ function CodexQuotaMiniRow({
               "仅统计该账号通过本机 API 服务产生的请求；当前没有可归属的本机记录",
             )}
           >
-            <span className="codex-quota-mini-chip is-untracked">
-              {t("codex.quota.windowStatsUnavailable", "本机未统计")}
+            <span
+              className="codex-quota-mini-chip is-untracked"
+              title={t(
+                "codex.quota.windowStatsUnavailable",
+                "暂无可归属的本机消耗记录",
+              )}
+            >
+              {t("codex.quota.windowAccountCostShort", "本机估算")} $--
             </span>
           </div>
         ) : null}

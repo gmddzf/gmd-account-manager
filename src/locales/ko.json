@@ -2330,6 +2330,7 @@
       "resetCreditGrantedAt": "지급",
       "resetCreditExpiresAt": "만료",
       "windowAccountCostHint": "계정 과금(모델 가격 추산)",
+      "windowAccountCostShort": "로컬 추정",
       "windowUserCostHint": "사용자 과금",
       "windowWeeks": "{{count}}주 할당량",
       "windowDays": "{{count}}일 할당량",

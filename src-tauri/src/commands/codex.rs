@@ -2640,6 +2640,24 @@ fn json_f64_at(value: &serde_json::Value, path: &[&str]) -> Option<f64> {
         .or_else(|| current.as_str()?.trim().parse::<f64>().ok())
 }
 
+fn json_f64_any_at(value: &serde_json::Value, paths: &[&[&str]]) -> Option<f64> {
+    paths.iter().find_map(|path| json_f64_at(value, path))
+}
+
+fn new_api_total_billing_cost_usd(value: &serde_json::Value) -> Option<f64> {
+    json_f64_any_at(
+        value,
+        &[
+            &["total_cost"],
+            &["totalCost"],
+            &["usage", "total", "actual_cost"],
+            &["usage", "total", "actualCost"],
+            &["usage", "total", "cost"],
+        ],
+    )
+    .or_else(|| json_f64_at(value, &["total_usage"]).map(|value| value / 100.0))
+}
+
 fn json_i64_at(value: &serde_json::Value, path: &[&str]) -> Option<i64> {
     let mut current = value;
     for key in path {
@@ -2724,7 +2742,15 @@ fn summarize_model_provider_usage(
         &mut details,
         "todayCost",
         "Today Cost",
-        json_f64_at(body, &["usage", "today", "cost"]).map(format_usage_number),
+        json_f64_any_at(
+            body,
+            &[
+                &["usage", "today", "actual_cost"],
+                &["usage", "today", "actualCost"],
+                &["usage", "today", "cost"],
+            ],
+        )
+        .map(format_usage_number),
     );
     push_usage_detail(
         &mut details,
@@ -2742,7 +2768,15 @@ fn summarize_model_provider_usage(
         &mut details,
         "totalCost",
         "Total Cost",
-        json_f64_at(body, &["usage", "total", "cost"]).map(format_usage_number),
+        json_f64_any_at(
+            body,
+            &[
+                &["usage", "total", "actual_cost"],
+                &["usage", "total", "actualCost"],
+                &["usage", "total", "cost"],
+            ],
+        )
+        .map(format_usage_number),
     );
 
     CodexModelProviderUsageSummary {
@@ -2759,10 +2793,15 @@ fn summarize_model_provider_usage(
         quota_remaining: json_f64_at(body, &["quota", "remaining"]),
         today_requests: json_i64_at(body, &["usage", "today", "requests"]),
         today_total_tokens: json_i64_at(body, &["usage", "today", "total_tokens"]),
-        today_cost: json_f64_at(body, &["usage", "today", "cost"]),
+        // Sub2API returns the quota debit directly.  Prefer its actual debit
+        // field when present; `cost` remains the compatibility fallback for
+        // older relay deployments.  No token-to-money conversion is done.
+        today_cost: json_f64_at(body, &["usage", "today", "actual_cost"])
+            .or_else(|| json_f64_at(body, &["usage", "today", "cost"])),
         total_requests: json_i64_at(body, &["usage", "total", "requests"]),
         total_total_tokens: json_i64_at(body, &["usage", "total", "total_tokens"]),
-        total_cost: json_f64_at(body, &["usage", "total", "cost"]),
+        total_cost: json_f64_at(body, &["usage", "total", "actual_cost"])
+            .or_else(|| json_f64_at(body, &["usage", "total", "cost"])),
         model_stats_count,
         latency_ms,
         details,
@@ -3296,7 +3335,10 @@ fn summarize_new_api_model_provider_usage(
     // `/api/usage/token/` reports New API's raw quota units, while the billing
     // endpoint reports currency subunits. Mixing both can inflate USD usage by
     // `quota_per_unit`, so customer-visible money only uses billing data.
-    let quota_used = json_f64_at(usage, &["total_usage"]).map(|value| value / 100.0);
+    let quota_used = new_api_total_billing_cost_usd(usage);
+    // Standard billing `total_usage` is cumulative. Today's spend is derived
+    // in the frontend from successive currency-balance snapshots, never from
+    // raw quota units or token-price conversion.
     let token_data = token_usage.and_then(|value| value.get("data"));
     let quota_unlimited = token_data
         .and_then(|value| json_bool_at(value, &["unlimited_quota"]))
@@ -3457,7 +3499,6 @@ fn summarize_new_api_model_provider_usage(
         "Total Usage",
         json_f64_at(usage, &["total_usage"]).map(format_usage_number),
     );
-
     CodexModelProviderUsageSummary {
         mode: Some("new_api".to_string()),
         is_valid: None,
@@ -4645,6 +4686,38 @@ mod tests {
     }
 
     #[test]
+    fn sub2api_summary_prefers_direct_actual_cost() {
+        let summary = summarize_model_provider_usage(
+            &serde_json::json!({
+                "mode": "sub2api",
+                "unit": "USD",
+                "usage": {
+                    "today": {
+                        "cost": 2.5,
+                        "actual_cost": 1.75
+                    },
+                    "total": {
+                        "cost": 20.0,
+                        "actual_cost": 18.25
+                    }
+                }
+            }),
+            12,
+        );
+
+        assert_eq!(summary.today_cost, Some(1.75));
+        assert_eq!(summary.total_cost, Some(18.25));
+        assert!(summary
+            .details
+            .iter()
+            .any(|item| item.key == "todayCost" && item.value == "1.75"));
+        assert!(summary
+            .details
+            .iter()
+            .any(|item| item.key == "totalCost" && item.value == "18.25"));
+    }
+
+    #[test]
     fn new_api_usage_counters_accept_explicit_server_fields() {
         let subscription = serde_json::json!({
             "hard_limit_usd": 100.0,
@@ -4663,7 +4736,6 @@ mod tests {
                 "total_available": 87.5,
             },
         });
-
         let summary = summarize_new_api_model_provider_usage(
             &subscription,
             &usage,
@@ -4672,6 +4744,7 @@ mod tests {
         );
 
         assert_eq!(summary.today_requests, Some(7));
+        assert_eq!(summary.today_cost, None);
         assert_eq!(summary.total_requests, Some(42));
         assert_eq!(summary.quota_used, Some(12.5));
         assert_eq!(summary.quota_remaining, Some(87.5));
@@ -4711,6 +4784,21 @@ mod tests {
         assert_eq!(summary.quota_used, Some(12.5));
         assert_eq!(summary.quota_remaining, Some(87.5));
         assert_eq!(summary.total_cost, Some(12.5));
+    }
+
+    #[test]
+    fn new_api_cumulative_usage_is_not_labeled_as_today_cost() {
+        let subscription = serde_json::json!({ "hard_limit_usd": 100.0 });
+        let usage = serde_json::json!({ "total_usage": 1250.0 });
+        let summary = summarize_new_api_model_provider_usage(
+            &subscription,
+            &usage,
+            None,
+            12,
+        );
+
+        assert_eq!(summary.total_cost, Some(12.5));
+        assert_eq!(summary.today_cost, None);
     }
 
     #[test]

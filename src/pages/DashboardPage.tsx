@@ -2347,29 +2347,41 @@ export function DashboardPage({
           {(!isChatCompletionsApiKey || isDeepSeekAccount(account)) && (
             <div className="account-mini-quotas codex-api-mini-quotas">
               {usageMode === 'new_api' ? (
-                <div className="mini-quota-row-stacked">
-                  <div className="mini-quota-header">
-                    <span className="model-name">{t('codex.cockpitApi.balance', '额度')}</span>
-                    <span className="model-pct high">
-                      {isUnlimited
-                        ? t('codex.newApi.quota.unlimited', '不限量')
-                        : newApiAvailable != null && newApiGranted != null
-                          ? `$${newApiAvailable.toFixed(2)} / $${newApiGranted.toFixed(2)}`
-                          : '-'}
-                    </span>
+                <>
+                  <div className="mini-quota-row-stacked">
+                    <div className="mini-quota-header">
+                      <span className="model-name">{t('codex.cockpitApi.balance', '额度')}</span>
+                      <span className="model-pct high">
+                        {isUnlimited
+                          ? t('codex.newApi.quota.unlimited', '不限量')
+                          : newApiAvailable != null && newApiGranted != null
+                            ? `$${newApiAvailable.toFixed(2)} / $${newApiGranted.toFixed(2)}`
+                            : '-'}
+                      </span>
+                    </div>
+                    <div className="mini-progress-track">
+                      <div
+                        className="mini-progress-bar high"
+                        style={{ width: `${progressPercent}%` }}
+                      />
+                    </div>
+                    <div className="mini-reset-time">
+                      {newApiExpiresAt != null && newApiExpiresAt > 0
+                        ? `${t('codex.modelProviders.usage.fields.expiresAt', '过期时间')} ${new Date(newApiExpiresAt * 1000).toLocaleDateString()}`
+                        : t('dashboard.noData', '暂无数据')}
+                    </div>
                   </div>
-                  <div className="mini-progress-track">
-                    <div
-                      className="mini-progress-bar high"
-                      style={{ width: `${progressPercent}%` }}
-                    />
+                  <div className="codex-api-mini-stats">
+                    <div className="codex-api-mini-stat">
+                      <span>{t('codex.modelProviders.usage.fields.todayRequests', '今日请求')}</span>
+                      <strong>{usageSummary?.todayRequests ?? '-'}</strong>
+                    </div>
+                    <div className="codex-api-mini-stat">
+                      <span>{t('codex.modelProviders.usage.fields.todayCost', '今日消耗额度')}</span>
+                      <strong>{formatModelProviderUsageMoney(usageSummary?.todayCost, usageSummary?.unit)}</strong>
+                    </div>
                   </div>
-                  <div className="mini-reset-time">
-                    {newApiExpiresAt != null && newApiExpiresAt > 0
-                      ? `${t('codex.modelProviders.usage.fields.expiresAt', '过期时间')} ${new Date(newApiExpiresAt * 1000).toLocaleDateString()}`
-                      : t('dashboard.noData', '暂无数据')}
-                  </div>
-                </div>
+                </>
               ) : usageMode === 'sub2api' ? (
                 <div className="codex-api-mini-stats">
                   <div className="codex-api-mini-stat">
@@ -2381,7 +2393,7 @@ export function DashboardPage({
                     <strong>{usageSummary?.todayRequests ?? '-'}</strong>
                   </div>
                   <div className="codex-api-mini-stat">
-                    <span>{t('codex.modelProviders.usage.fields.todayCost', '今日余额消耗')}</span>
+                    <span>{t('codex.modelProviders.usage.fields.todayCost', '今日消耗额度')}</span>
                     <strong>{formatModelProviderUsageMoney(usageSummary?.todayCost, usageSummary?.unit)}</strong>
                   </div>
                 </div>

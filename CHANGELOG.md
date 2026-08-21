@@ -7,6 +7,19 @@ All notable changes to GMD Account Manager will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
+## [1.3.26] - 2026-08-21
+
+### Added
+
+- **Codex account management now includes a complete auto-switch panel**: configure the master switch, five-hour and weekly quota thresholds, quota refresh interval, all or selected account scope, and whether Codex should launch or restart after a switch. It reuses the existing configuration API and never enables or triggers switching just by opening the page.
+- **Official OAuth accounts now always expose their USD-consumption state**: when attributable local API Service records exist, the card shows the model-price estimate for the current quota window; otherwise it explicitly shows `Local estimate $--` instead of presenting a fabricated zero.
+
+### Fixed
+
+- **GMD relay cards now display quota consumption from the relay contract**: `subapi.gmd.ink` uses the server's authoritative daily actual cost; `api.gmd.ink` prefers a server-provided daily cost and otherwise accumulates decreases between same-credential balance samples for the local day. Tokens are never converted into money locally. Account cards, dashboard cards, and details consistently replace Today's Tokens with Today's Quota Spent.
+- **Automatic GMD relay probing is restricted to exact hosts**: only `api.gmd.ink` and `subapi.gmd.ink` select their matching usage contracts, so lookalike domains and arbitrary third-party endpoints are not probed.
+- **The customer updater release path now supports the private GMD repository**: tag releases finish signed Windows NSIS and macOS Universal builds first, generate target manifests and a legacy `latest.json` that point to `subapi.gmd.ink`, and only then publish the GitHub Release. This removes the first-release dependency on a previous Release and public GitHub asset URLs.
+
 ## [1.3.25] - 2026-08-20
 
 ### Fixed

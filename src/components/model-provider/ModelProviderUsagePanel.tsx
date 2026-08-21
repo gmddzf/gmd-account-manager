@@ -94,7 +94,10 @@ export function ModelProviderUsagePanel({
     summary.remaining ?? summary.balance ?? summary.quotaRemaining,
     summary.unit,
   );
-  const todayRequests = formatModelProviderUsageInteger(summary.todayRequests);
+  const todayRequests =
+    summary.todayRequests == null
+      ? '-'
+      : formatModelProviderUsageInteger(summary.todayRequests);
   const todayBalanceCost = formatModelProviderUsageMoney(
     summary.todayCost,
     summary.unit,
@@ -112,7 +115,7 @@ export function ModelProviderUsagePanel({
           <strong>{todayRequests}</strong>
         </div>
         <div>
-          <span>{t('codex.modelProviders.usage.fields.todayCost', '今日余额消耗')}</span>
+          <span>{t('codex.modelProviders.usage.fields.todayCost', '今日消耗额度')}</span>
           <strong>{todayBalanceCost}</strong>
         </div>
       </div>

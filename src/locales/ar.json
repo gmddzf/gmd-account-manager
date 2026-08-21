@@ -2377,6 +2377,7 @@
       "resetCreditGrantedAt": "مُنحت",
       "resetCreditExpiresAt": "تنتهي",
       "windowAccountCostHint": "فوترة الحساب (تقدير حسب أسعار النموذج)",
+      "windowAccountCostShort": "تقدير محلي",
       "windowUserCostHint": "فوترة المستخدم",
       "windowWeeks": "حصة {{count}} أسابيع",
       "windowDays": "حصة {{count}} أيام",

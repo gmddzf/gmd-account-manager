@@ -2330,6 +2330,7 @@
       "resetCreditGrantedAt": "Gewährt",
       "resetCreditExpiresAt": "Läuft ab",
       "windowAccountCostHint": "Kontokosten (aus Modellpreisen geschätzt)",
+      "windowAccountCostShort": "Lokale Schätzung",
       "windowUserCostHint": "Nutzerkosten",
       "windowWeeks": "{{count}}-Wochen-Kontingent",
       "windowDays": "{{count}}-Tage-Kontingent",

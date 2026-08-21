@@ -3080,6 +3080,7 @@
       "windowStatsHint": "Requests, tokens, and account-billed cost this account used via API Service since this window was last full",
       "windowStatsUnavailable": "Not tracked locally",
       "windowStatsUnavailableHint": "Only requests routed through the local API Service can be attributed to this account; no local records are available",
+      "windowAccountCostShort": "Local estimate",
       "windowUsed": "Used {{tokens}} · {{cost}}",
       "windowReq": "{{count}} req",
       "reset": "Reset",

@@ -2330,6 +2330,7 @@
       "resetCreditGrantedAt": "Přiděleno",
       "resetCreditExpiresAt": "Vyprší",
       "windowAccountCostHint": "Účtování účtu (odhad z cen modelu)",
+      "windowAccountCostShort": "Místní odhad",
       "windowUserCostHint": "Účtování uživatele",
       "windowWeeks": "Kvóta {{count}} týd.",
       "windowDays": "Kvóta {{count}} d",

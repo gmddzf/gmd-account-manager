@@ -2330,6 +2330,7 @@
       "resetCreditGrantedAt": "Được cấp",
       "resetCreditExpiresAt": "Hết hạn",
       "windowAccountCostHint": "Phí tài khoản (ước theo giá mô hình)",
+      "windowAccountCostShort": "Ước tính cục bộ",
       "windowUserCostHint": "Phí người dùng",
       "windowWeeks": "Hạn mức {{count}} tuần",
       "windowDays": "Hạn mức {{count}} ngày",

@@ -1,9 +1,6 @@
-name: 📦 Release
+name: Legacy Upstream Release (manual only)
 
 on:
-  push:
-    tags:
-      - "v*"
   workflow_dispatch:
 
 concurrency:

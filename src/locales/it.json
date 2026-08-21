@@ -2330,6 +2330,7 @@
       "resetCreditGrantedAt": "Concessa",
       "resetCreditExpiresAt": "Scade",
       "windowAccountCostHint": "Addebito account (stimato dai prezzi modello)",
+      "windowAccountCostShort": "Stima locale",
       "windowUserCostHint": "Addebito utente",
       "windowWeeks": "Quota {{count}} sett.",
       "windowDays": "Quota {{count}} gg",

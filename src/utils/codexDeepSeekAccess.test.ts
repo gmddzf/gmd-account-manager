@@ -232,7 +232,7 @@ test("accounts without a saved API key stay excluded", () => {
   );
 });
 
-test("New API accounts stay excluded", () => {
+test("unknown New API accounts stay excluded", () => {
   assert.equal(
     isCodexApiKeyUsageQueryEligible(account({
       auth_mode: "apikey",
@@ -242,6 +242,23 @@ test("New API accounts stay excluded", () => {
     })),
     false,
   );
+});
+
+test("known GMD relay accounts can query and display direct usage", () => {
+  for (const [baseUrl, providerId] of [
+    ["https://api.gmd.ink/v1", "gmd_api"],
+    ["https://subapi.gmd.ink/", "custom"],
+  ] as const) {
+    const relay = account({
+      auth_mode: "apikey",
+      api_provider_id: providerId,
+      api_base_url: baseUrl,
+      api_wire_api: "responses",
+      openai_api_key: "sk-relay-test",
+    });
+    assert.equal(isCodexApiKeyUsageQueryEligible(relay), true);
+    assert.equal(shouldShowCodexApiKeyUsagePanel(relay, false), true);
+  }
 });
 
 test("account overview still shows DeepSeek quota when relay quota is hidden", () => {

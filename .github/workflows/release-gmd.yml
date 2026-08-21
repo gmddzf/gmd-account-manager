@@ -1,0 +1,426 @@
+name: Release GMD Account Manager
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+concurrency:
+  group: release-gmd-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  preflight:
+    name: Validate release source
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      version: ${{ steps.app_version.outputs.version }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Read and validate version
+        id: app_version
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="$(node -p "require('./package.json').version")"
+          RELEASE_TAG="${GITHUB_REF_NAME}"
+          if [ "${GITHUB_EVENT_NAME}" = "workflow_dispatch" ]; then
+            RELEASE_TAG="v${VERSION}"
+          fi
+          test "${RELEASE_TAG}" = "v${VERSION}" || {
+            echo "Release tag ${RELEASE_TAG} does not match package version v${VERSION}." >&2
+            exit 1
+          }
+          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+
+      - name: Validate GMD locales and TypeScript
+        run: |
+          node scripts/release/validate_gmd_locales.cjs
+          npm run typecheck
+
+      - name: Test release tooling
+        run: |
+          node --test \
+            scripts/release/build_gmd_latest_json.test.cjs \
+            scripts/release/build_target_latest_json.test.cjs \
+            scripts/release/stage_release_assets.test.cjs \
+            scripts/release/verify_published_updater_manifests.test.cjs
+
+      - name: Build bilingual release notes
+        shell: bash
+        run: |
+          set -euo pipefail
+          VERSION="${{ steps.app_version.outputs.version }}"
+
+          extract_section() {
+            local file="$1"
+            awk -v version="$VERSION" '
+              /^## / {
+                if (capture) exit
+                if ($0 ~ ("^## \\[" version "\\][[:space:]]*-.*$")) {
+                  capture = 1
+                  found = 1
+                }
+              }
+              capture { print }
+              END { if (!found) exit 2 }
+            ' "$file"
+          }
+
+          zh_section="$(extract_section CHANGELOG.zh-CN.md)" || {
+            echo "Missing CHANGELOG.zh-CN.md section for ${VERSION}." >&2
+            exit 1
+          }
+          en_section="$(extract_section CHANGELOG.md)" || {
+            echo "Missing CHANGELOG.md section for ${VERSION}." >&2
+            exit 1
+          }
+          {
+            echo "## 更新日志"
+            echo
+            printf '%s\n' "$zh_section"
+            echo
+            echo "## Changelog"
+            echo
+            printf '%s\n' "$en_section"
+          } > release-notes.md
+          date -u +"%Y-%m-%dT%H:%M:%SZ" > published-at.txt
+
+      - name: Upload release metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: gmd-release-metadata-${{ steps.app_version.outputs.version }}
+          path: |
+            release-notes.md
+            published-at.txt
+          if-no-files-found: error
+          retention-days: 30
+
+  build-windows:
+    name: Build signed Windows NSIS
+    needs: preflight
+    runs-on: windows-latest
+    permissions:
+      contents: read
+    env:
+      VERSION: ${{ needs.preflight.outputs.version }}
+      VITE_GMD_UPDATER_ENABLED: "true"
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: x86_64-pc-windows-msvc
+
+      - name: Cache Rust build dependencies
+        uses: swatinem/rust-cache@v2
+        with:
+          key: gmd-windows-release
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: sidecars/cockpit-cliproxy/go.mod
+          cache-dependency-path: sidecars/cockpit-cliproxy/go.sum
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Validate signing secrets
+        shell: bash
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "${TAURI_SIGNING_PRIVATE_KEY}" || {
+            echo "Missing TAURI_SIGNING_PRIVATE_KEY." >&2
+            exit 1
+          }
+          test -n "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD}" || {
+            echo "Missing TAURI_SIGNING_PRIVATE_KEY_PASSWORD." >&2
+            exit 1
+          }
+
+      - name: Build Windows installer
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: npx tauri build --ci --target x86_64-pc-windows-msvc --bundles nsis
+
+      - name: Stage stable Windows assets
+        shell: bash
+        run: |
+          set -euo pipefail
+          node scripts/release/stage_release_assets.cjs \
+            --platform windows \
+            --assets-dir target/x86_64-pc-windows-msvc/release/bundle \
+            --output-dir release-assets
+          mapfile -t installers < <(find release-assets -maxdepth 1 -type f -name '*-setup.exe' -print)
+          test "${#installers[@]}" -eq 1
+          installer="${installers[0]}"
+          test -s "${installer}.sig"
+          stable="release-assets/GMD-Account-Manager_${VERSION}_x64-setup.exe"
+          mv -- "$installer" "$stable"
+          mv -- "${installer}.sig" "${stable}.sig"
+          find release-assets -maxdepth 1 -type f -printf '%f %s bytes\n' | sort
+
+      - name: Upload Windows release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: gmd-release-windows-${{ needs.preflight.outputs.version }}
+          path: release-assets/*
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload Windows app executable for E drive replacement
+        uses: actions/upload-artifact@v4
+        with:
+          name: gmd-local-windows-app-${{ needs.preflight.outputs.version }}
+          path: target/x86_64-pc-windows-msvc/release/gmd-account-manager.exe
+          if-no-files-found: error
+          retention-days: 7
+
+  build-macos:
+    name: Build signed macOS Universal
+    needs: preflight
+    runs-on: macos-latest
+    permissions:
+      contents: read
+    env:
+      VERSION: ${{ needs.preflight.outputs.version }}
+      VITE_GMD_UPDATER_ENABLED: "true"
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Rust targets
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: aarch64-apple-darwin,x86_64-apple-darwin
+
+      - name: Cache Rust build dependencies
+        uses: swatinem/rust-cache@v2
+        with:
+          key: gmd-macos-universal-release
+
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: sidecars/cockpit-cliproxy/go.mod
+          cache-dependency-path: sidecars/cockpit-cliproxy/go.sum
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Validate signing secrets
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: |
+          set -euo pipefail
+          test -n "${TAURI_SIGNING_PRIVATE_KEY}" || {
+            echo "Missing TAURI_SIGNING_PRIVATE_KEY." >&2
+            exit 1
+          }
+          test -n "${TAURI_SIGNING_PRIVATE_KEY_PASSWORD}" || {
+            echo "Missing TAURI_SIGNING_PRIVATE_KEY_PASSWORD." >&2
+            exit 1
+          }
+
+      - name: Build Universal app and updater archive
+        env:
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        run: npx tauri build --ci --target universal-apple-darwin
+
+      - name: Stage stable macOS assets
+        run: |
+          set -euo pipefail
+          node scripts/release/stage_release_assets.cjs \
+            --platform macos \
+            --mac-arch universal \
+            --assets-dir target/universal-apple-darwin/release/bundle \
+            --output-dir release-assets
+          mapfile -t dmgs < <(find release-assets -maxdepth 1 -type f -name '*.dmg' -print)
+          mapfile -t archives < <(find release-assets -maxdepth 1 -type f -name '*_universal.app.tar.gz' -print)
+          test "${#dmgs[@]}" -eq 1
+          test "${#archives[@]}" -eq 1
+          archive="${archives[0]}"
+          test -s "${archive}.sig"
+          mv -- "${dmgs[0]}" "release-assets/GMD-Account-Manager_${VERSION}_universal.dmg"
+          mv -- "$archive" "release-assets/GMD-Account-Manager_universal.app.tar.gz"
+          mv -- "${archive}.sig" "release-assets/GMD-Account-Manager_universal.app.tar.gz.sig"
+          for arch in aarch64 x64; do
+            cp -- "release-assets/GMD-Account-Manager_universal.app.tar.gz" \
+              "release-assets/GMD-Account-Manager_${arch}.app.tar.gz"
+            cp -- "release-assets/GMD-Account-Manager_universal.app.tar.gz.sig" \
+              "release-assets/GMD-Account-Manager_${arch}.app.tar.gz.sig"
+          done
+          find release-assets -maxdepth 1 -type f -exec stat -f '%N %z bytes' {} + | sort
+
+      - name: Upload macOS release assets
+        uses: actions/upload-artifact@v4
+        with:
+          name: gmd-release-macos-${{ needs.preflight.outputs.version }}
+          path: release-assets/*
+          if-no-files-found: error
+          retention-days: 30
+
+  publish-release:
+    name: Publish GitHub Release bundle
+    needs:
+      - preflight
+      - build-windows
+      - build-macos
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.preflight.outputs.version }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Download release metadata
+        uses: actions/download-artifact@v4
+        with:
+          name: gmd-release-metadata-${{ needs.preflight.outputs.version }}
+          path: release-metadata
+
+      - name: Download Windows assets
+        uses: actions/download-artifact@v4
+        with:
+          name: gmd-release-windows-${{ needs.preflight.outputs.version }}
+          path: release-assets/windows
+
+      - name: Download macOS assets
+        uses: actions/download-artifact@v4
+        with:
+          name: gmd-release-macos-${{ needs.preflight.outputs.version }}
+          path: release-assets/macos
+
+      - name: Assemble updater bundle
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p release-assets/all target-manifests
+          find release-assets/windows release-assets/macos -maxdepth 1 -type f -exec cp -- {} release-assets/all/ \;
+          node scripts/release/build_target_latest_json.cjs \
+            --version "${VERSION}" \
+            --repo "${GITHUB_REPOSITORY}" \
+            --assets-dir release-assets/all \
+            --notes-file release-metadata/release-notes.md \
+            --published-at "$(cat release-metadata/published-at.txt)" \
+            --targets windows-x86_64-nsis,darwin-aarch64-app,darwin-x86_64-app \
+            --asset-base-url "https://subapi.gmd.ink/gmd-account-manager/releases/v${VERSION}" \
+            --output-dir target-manifests
+          node scripts/release/build_gmd_latest_json.cjs \
+            --version "${VERSION}" \
+            --manifests-dir target-manifests \
+            --output target-manifests/latest.json
+          node scripts/release/gen_checksums.cjs \
+            --input release-assets/all \
+            --input target-manifests \
+            --output SHA256SUMS.txt
+          test -s "release-assets/all/GMD-Account-Manager_${VERSION}_x64-setup.exe"
+          test -s target-manifests/latest-windows-x86_64-nsis.json
+          test -s target-manifests/latest.json
+
+      - name: Validate updater metadata
+        shell: bash
+        run: |
+          set -euo pipefail
+          jq -e --arg version "${VERSION}" '
+            .version == $version and
+            .url == ("https://subapi.gmd.ink/gmd-account-manager/releases/v" + $version + "/GMD-Account-Manager_" + $version + "_x64-setup.exe") and
+            (.signature | length > 0)
+          ' target-manifests/latest-windows-x86_64-nsis.json >/dev/null
+          jq -e --arg version "${VERSION}" '
+            .version == $version and
+            .platforms["windows-x86_64-nsis"] and
+            .platforms["darwin-aarch64-app"] and
+            .platforms["darwin-x86_64-app"]
+          ' target-manifests/latest.json >/dev/null
+
+      - name: Create or update draft Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="v${VERSION}"
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release edit "$TAG" \
+              --title "GMD Account Manager ${TAG}" \
+              --notes-file release-metadata/release-notes.md \
+              --draft
+          else
+            gh release create "$TAG" \
+              --title "GMD Account Manager ${TAG}" \
+              --notes-file release-metadata/release-notes.md \
+              --target "${GITHUB_SHA}" \
+              --draft
+          fi
+
+      - name: Upload Release assets and publish
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          TAG="v${VERSION}"
+          mapfile -t assets < <(
+            find release-assets/all target-manifests -maxdepth 1 -type f -print | sort
+          )
+          test "${#assets[@]}" -gt 0
+          gh release upload "$TAG" "${assets[@]}" SHA256SUMS.txt --clobber
+          gh release edit "$TAG" --draft=false --prerelease=false --latest
+          gh release view "$TAG" --json tagName,isDraft,isPrerelease,url
+
+      - name: Upload complete customer release bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: gmd-account-manager-release-${{ needs.preflight.outputs.version }}
+          path: |
+            release-assets/all/*
+            target-manifests/*
+            SHA256SUMS.txt
+            release-metadata/release-notes.md
+            release-metadata/published-at.txt
+          if-no-files-found: error
+          retention-days: 30

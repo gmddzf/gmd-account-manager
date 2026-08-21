@@ -2511,6 +2511,7 @@
       "resetCreditGrantedAt": "Diberikan",
       "resetCreditExpiresAt": "Kedaluwarsa",
       "windowAccountCostHint": "Tagihan akun (perkiraan harga model)",
+      "windowAccountCostShort": "Perkiraan lokal",
       "windowUserCostHint": "Tagihan pengguna",
       "windowWeeks": "Kuota {{count}} minggu",
       "windowDays": "Kuota {{count}} hari",

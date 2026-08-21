@@ -193,6 +193,12 @@ import {
 } from "../utils/codexModelContextWindows";
 import { CodexSpeedSelect } from "../components/codex/CodexSpeedSelect";
 import { QuickSettingsPopover } from "../components/QuickSettingsPopover";
+import {
+  AutoSwitchAccountScopeSelector,
+  type AutoSwitchAccountScopeMode,
+  type AutoSwitchScopeAccount,
+  type AutoSwitchScopeGroup,
+} from "../components/AutoSwitchAccountScopeSelector";
 import { CodexQuickConfigCard } from "../components/codex/CodexQuickConfigCard";
 import { resolveCodexQuickConfigPresetId } from "../utils/codexQuickConfigPresets";
 import { useProviderAccountsPage } from "../hooks/useProviderAccountsPage";
@@ -291,6 +297,7 @@ import {
   findCodexModelProviderByBaseUrl,
   listCodexModelProviders,
   queryCodexModelProviderUsage,
+  resolveCodexModelProviderUsageIdentity,
   saveCodexModelProviderDetectedIntegrationType,
   type CodexModelProvider,
   type CodexModelProviderUsageSummary,
@@ -306,6 +313,7 @@ import {
   isModelProviderUsageUnavailableError,
   formatModelProviderUsageMoney,
   listModelProviderModels,
+  resolveKnownGmdRelayUsageIntegrationType,
   resolveNewApiQuotaSnapshot,
 } from "../services/modelProviderUsageService";
 import { useSponsorStore } from "../stores/useSponsorStore";
@@ -758,6 +766,136 @@ function resolveApiKeyUsageMode(
 interface CodexOverviewGeneralConfig {
   codex_local_access_entry_visible?: boolean;
   codex_hide_relay_quota?: boolean;
+  codex_auto_switch_enabled?: boolean;
+  codex_auto_switch_primary_threshold?: number;
+  codex_auto_switch_secondary_threshold?: number;
+  codex_auto_switch_account_scope_mode?: string;
+  codex_auto_switch_selected_account_ids?: string[];
+  codex_auto_refresh_minutes?: number;
+  codex_launch_on_switch?: boolean;
+  codex_restart_specified_app_on_switch?: boolean;
+}
+
+type CodexAutoSwitchConfigState = {
+  enabled: boolean;
+  primaryThreshold: number;
+  secondaryThreshold: number;
+  scopeMode: AutoSwitchAccountScopeMode;
+  selectedAccountIds: string[];
+  refreshMinutes: number;
+  launchOnSwitch: boolean;
+  restartSpecifiedAppOnSwitch: boolean;
+};
+
+const DEFAULT_CODEX_AUTO_SWITCH_CONFIG: CodexAutoSwitchConfigState = {
+  enabled: false,
+  primaryThreshold: 20,
+  secondaryThreshold: 20,
+  scopeMode: "all_accounts",
+  selectedAccountIds: [],
+  refreshMinutes: 10,
+  launchOnSwitch: true,
+  restartSpecifiedAppOnSwitch: false,
+};
+
+function normalizeCodexAutoSwitchConfig(
+  config: CodexOverviewGeneralConfig,
+): CodexAutoSwitchConfigState {
+  const normalizeThreshold = (value: unknown, fallback: number) => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return fallback;
+    return Math.min(100, Math.max(0, Math.trunc(parsed)));
+  };
+  const normalizeRefreshMinutes = (value: unknown, fallback: number) => {
+    const parsed = Number(value);
+    if (!Number.isFinite(parsed)) return fallback;
+    if (parsed === -1) return -1;
+    return Math.max(1, Math.trunc(parsed));
+  };
+  const selectedAccountIds = Array.isArray(
+    config.codex_auto_switch_selected_account_ids,
+  )
+    ? config.codex_auto_switch_selected_account_ids.filter(
+        (accountId): accountId is string =>
+          typeof accountId === "string" && accountId.trim().length > 0,
+      )
+    : [];
+
+  return {
+    enabled: Boolean(config.codex_auto_switch_enabled ?? false),
+    primaryThreshold: normalizeThreshold(
+      config.codex_auto_switch_primary_threshold,
+      DEFAULT_CODEX_AUTO_SWITCH_CONFIG.primaryThreshold,
+    ),
+    secondaryThreshold: normalizeThreshold(
+      config.codex_auto_switch_secondary_threshold,
+      DEFAULT_CODEX_AUTO_SWITCH_CONFIG.secondaryThreshold,
+    ),
+    scopeMode:
+      config.codex_auto_switch_account_scope_mode === "selected_accounts"
+        ? "selected_accounts"
+        : "all_accounts",
+    selectedAccountIds,
+    refreshMinutes: normalizeRefreshMinutes(
+      config.codex_auto_refresh_minutes,
+      DEFAULT_CODEX_AUTO_SWITCH_CONFIG.refreshMinutes,
+    ),
+    launchOnSwitch: Boolean(config.codex_launch_on_switch ?? true),
+    restartSpecifiedAppOnSwitch: Boolean(
+      config.codex_restart_specified_app_on_switch ?? false,
+    ),
+  };
+}
+
+function applyCodexAutoSwitchConfigUpdates(
+  state: CodexAutoSwitchConfigState,
+  updates: Partial<CodexOverviewGeneralConfig>,
+): CodexAutoSwitchConfigState {
+  const next = { ...state };
+  if (updates.codex_auto_switch_enabled !== undefined) {
+    next.enabled = Boolean(updates.codex_auto_switch_enabled);
+  }
+  if (updates.codex_auto_switch_primary_threshold !== undefined) {
+    next.primaryThreshold = Math.min(
+      100,
+      Math.max(0, Math.trunc(Number(updates.codex_auto_switch_primary_threshold))),
+    );
+  }
+  if (updates.codex_auto_switch_secondary_threshold !== undefined) {
+    next.secondaryThreshold = Math.min(
+      100,
+      Math.max(0, Math.trunc(Number(updates.codex_auto_switch_secondary_threshold))),
+    );
+  }
+  if (updates.codex_auto_switch_account_scope_mode !== undefined) {
+    next.scopeMode =
+      updates.codex_auto_switch_account_scope_mode === "selected_accounts"
+        ? "selected_accounts"
+        : "all_accounts";
+  }
+  if (updates.codex_auto_switch_selected_account_ids !== undefined) {
+    next.selectedAccountIds = Array.isArray(
+      updates.codex_auto_switch_selected_account_ids,
+    )
+      ? updates.codex_auto_switch_selected_account_ids.filter(
+          (accountId): accountId is string =>
+            typeof accountId === "string" && accountId.trim().length > 0,
+        )
+      : [];
+  }
+  if (updates.codex_auto_refresh_minutes !== undefined) {
+    const parsed = Math.trunc(Number(updates.codex_auto_refresh_minutes));
+    next.refreshMinutes = parsed === -1 ? -1 : Math.max(1, parsed);
+  }
+  if (updates.codex_launch_on_switch !== undefined) {
+    next.launchOnSwitch = Boolean(updates.codex_launch_on_switch);
+  }
+  if (updates.codex_restart_specified_app_on_switch !== undefined) {
+    next.restartSpecifiedAppOnSwitch = Boolean(
+      updates.codex_restart_specified_app_on_switch,
+    );
+  }
+  return next;
 }
 
 function normalizeCodexOverviewLayoutMode(
@@ -1417,6 +1555,19 @@ export function CodexAccountsPage() {
       return "grid";
     });
   const [hideRelayQuota, setHideRelayQuota] = useState(false);
+  const [codexAutoSwitchConfig, setCodexAutoSwitchConfig] =
+    useState<CodexAutoSwitchConfigState>(DEFAULT_CODEX_AUTO_SWITCH_CONFIG);
+  const [codexAutoSwitchConfigLoading, setCodexAutoSwitchConfigLoading] =
+    useState(true);
+  const [codexAutoSwitchConfigSaving, setCodexAutoSwitchConfigSaving] =
+    useState(false);
+  const [codexAutoSwitchConfigError, setCodexAutoSwitchConfigError] =
+    useState<string | null>(null);
+  const [codexAutoSwitchPrimaryDraft, setCodexAutoSwitchPrimaryDraft] =
+    useState(String(DEFAULT_CODEX_AUTO_SWITCH_CONFIG.primaryThreshold));
+  const [codexAutoSwitchSecondaryDraft, setCodexAutoSwitchSecondaryDraft] =
+    useState(String(DEFAULT_CODEX_AUTO_SWITCH_CONFIG.secondaryThreshold));
+  const codexAutoSwitchSaveQueueRef = useRef<Promise<void>>(Promise.resolve());
   const [
     localAccessGatewayGuideDismissed,
     setLocalAccessGatewayGuideDismissed,
@@ -1642,6 +1793,70 @@ export function CodexAccountsPage() {
     normalizeTag,
     saveJsonFile,
   } = page;
+  const reloadCodexAutoSwitchConfig = useCallback(async () => {
+    setCodexAutoSwitchConfigLoading(true);
+    try {
+      const config = await invoke<CodexOverviewGeneralConfig>(
+        "get_general_config",
+      );
+      const normalized = normalizeCodexAutoSwitchConfig(config);
+      setCodexAutoSwitchConfig(normalized);
+      setCodexAutoSwitchPrimaryDraft(String(normalized.primaryThreshold));
+      setCodexAutoSwitchSecondaryDraft(String(normalized.secondaryThreshold));
+      setCodexAutoSwitchConfigError(null);
+    } catch (error) {
+      setCodexAutoSwitchConfigError(
+        String(error).replace(/^Error:\s*/, "") || "加载自动切号配置失败",
+      );
+    } finally {
+      setCodexAutoSwitchConfigLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void reloadCodexAutoSwitchConfig();
+    const handleConfigUpdated = () => {
+      void reloadCodexAutoSwitchConfig();
+    };
+    window.addEventListener("config-updated", handleConfigUpdated);
+    return () => {
+      window.removeEventListener("config-updated", handleConfigUpdated);
+    };
+  }, [reloadCodexAutoSwitchConfig]);
+
+  const saveCodexAutoSwitchConfig = useCallback(
+    (updates: Partial<CodexOverviewGeneralConfig>) => {
+      setCodexAutoSwitchConfig((current) =>
+        applyCodexAutoSwitchConfigUpdates(current, updates),
+      );
+      setCodexAutoSwitchConfigError(null);
+
+      const operation = async () => {
+        setCodexAutoSwitchConfigSaving(true);
+        try {
+          await invoke("patch_general_config", { updates });
+          window.dispatchEvent(new Event("config-updated"));
+          await reloadCodexAutoSwitchConfig();
+        } catch (error) {
+          const saveError =
+            String(error).replace(/^Error:\s*/, "") || "保存自动切号配置失败";
+          await reloadCodexAutoSwitchConfig();
+          setCodexAutoSwitchConfigError(saveError);
+        } finally {
+          setCodexAutoSwitchConfigSaving(false);
+        }
+      };
+
+      const queuedOperation = codexAutoSwitchSaveQueueRef.current.then(
+        operation,
+        operation,
+      );
+      codexAutoSwitchSaveQueueRef.current = queuedOperation.catch(() => {});
+      return queuedOperation;
+    },
+    [reloadCodexAutoSwitchConfig],
+  );
+
   const codexQuickConfigLabel = useMemo(() => {
     switch (codexQuickConfigPresetId) {
       case "preset_272k":
@@ -7359,6 +7574,10 @@ export function CodexAccountsPage() {
               baseUrl: savedProvider.baseUrl,
               apiKey: validation.apiKey,
               integrationType: savedProvider.integrationType ?? null,
+              usageIdentity: resolveCodexModelProviderUsageIdentity({
+                provider: savedProvider,
+                apiKey: validation.apiKey,
+              }),
             });
             if (
               (usageSummary.mode === "sub2api" ||
@@ -7774,10 +7993,7 @@ export function CodexAccountsPage() {
 
   const resolveUsageProviderForApiKeyAccount = useCallback(
     (account: CodexAccount): CodexModelProvider | null => {
-      if (
-        !isCodexApiKeyAccount(account) ||
-        isCodexNewApiAccount(account)
-      ) {
+      if (!isCodexApiKeyAccount(account)) {
         return null;
       }
       const provider =
@@ -7793,18 +8009,23 @@ export function CodexAccountsPage() {
 
   const refreshApiKeyUsage = useCallback(
     async (account: CodexAccount, provider?: CodexModelProvider | null) => {
-      if (
-        isCodexChatCompletionsApiKeyAccount(account) &&
-        !isDeepSeekAccount(account) &&
-        !isCodexTokenPlanAccount(account)
-      ) {
-        return;
-      }
       const targetProvider =
         provider ?? resolveUsageProviderForApiKeyAccount(account);
       const apiKey = (account.openai_api_key || "").trim();
       const baseUrl =
         targetProvider?.baseUrl.trim() || (account.api_base_url || "").trim();
+      const integrationType =
+        targetProvider?.integrationType ??
+        resolveKnownGmdRelayUsageIntegrationType(baseUrl);
+      if (
+        (isCodexNewApiAccount(account) && integrationType === null) ||
+        (isCodexChatCompletionsApiKeyAccount(account) &&
+          integrationType === null &&
+          !isDeepSeekAccount(account) &&
+          !isCodexTokenPlanAccount(account))
+      ) {
+        return;
+      }
       if (!baseUrl || !apiKey) return;
       if (apiKeyUsageInFlightRef.current.has(account.id)) {
         return;
@@ -7823,7 +8044,12 @@ export function CodexAccountsPage() {
         const summary = await queryCodexModelProviderUsage({
           baseUrl,
           apiKey,
-          integrationType: targetProvider?.integrationType ?? null,
+          integrationType,
+          usageIdentity: resolveCodexModelProviderUsageIdentity({
+            provider: targetProvider,
+            apiKey,
+            accountId: account.id,
+          }),
         });
         const updatedAt = Date.now();
         if (
@@ -7864,13 +8090,7 @@ export function CodexAccountsPage() {
 
   const canRefreshApiKeyUsage = useCallback(
     (account: CodexAccount, provider?: CodexModelProvider | null): boolean => {
-      if (
-        !isCodexApiKeyAccount(account) ||
-        isCodexNewApiAccount(account) ||
-        (isCodexChatCompletionsApiKeyAccount(account) &&
-          !isDeepSeekAccount(account) &&
-          !isCodexTokenPlanAccount(account))
-      ) {
+      if (!isCodexApiKeyAccount(account)) {
         return false;
       }
       const targetProvider =
@@ -7878,6 +8098,18 @@ export function CodexAccountsPage() {
       const apiKey = (account.openai_api_key || "").trim();
       const baseUrl =
         targetProvider?.baseUrl.trim() || (account.api_base_url || "").trim();
+      const integrationType =
+        targetProvider?.integrationType ??
+        resolveKnownGmdRelayUsageIntegrationType(baseUrl);
+      if (
+        (isCodexNewApiAccount(account) && integrationType === null) ||
+        (isCodexChatCompletionsApiKeyAccount(account) &&
+          integrationType === null &&
+          !isDeepSeekAccount(account) &&
+          !isCodexTokenPlanAccount(account))
+      ) {
+        return false;
+      }
       return Boolean(apiKey && baseUrl);
     },
     [resolveUsageProviderForApiKeyAccount],
@@ -8163,7 +8395,7 @@ export function CodexAccountsPage() {
         ),
         todayCost: t(
           "codex.modelProviders.usage.fields.todayCost",
-          "今日余额消耗",
+          "今日消耗额度",
         ),
         totalRequests: t(
           "codex.modelProviders.usage.fields.totalRequests",
@@ -8315,21 +8547,25 @@ export function CodexAccountsPage() {
       provider: CodexModelProvider | null,
       variant: "card" | "table" = "card",
     ): ReactElement => {
-      if (
-        isCodexChatCompletionsApiKeyAccount(account) &&
-        !isDeepSeekAccount(account) &&
-        !isCodexTokenPlanAccount(account)
-      ) {
-        return <></>;
-      }
       const usageState = apiKeyUsageMap[account.id];
       const summary = usageState?.summary;
       const loading = usageState?.loading === true;
       const apiKey = (account.openai_api_key || "").trim();
       const baseUrl =
         provider?.baseUrl.trim() || (account.api_base_url || "").trim();
+      const integrationType =
+        provider?.integrationType ??
+        resolveKnownGmdRelayUsageIntegrationType(baseUrl);
+      if (
+        isCodexChatCompletionsApiKeyAccount(account) &&
+        integrationType === null &&
+        !isDeepSeekAccount(account) &&
+        !isCodexTokenPlanAccount(account)
+      ) {
+        return <></>;
+      }
       const canRefresh = Boolean(apiKey && baseUrl);
-      const usageMode = resolveApiKeyUsageMode(summary);
+      const usageMode = resolveApiKeyUsageMode(summary) ?? integrationType;
       const isDeepSeekUsage =
         isDeepSeekAccount(account) || usageMode === "deepseek";
       const isNewApiUsage = usageMode === "new_api";
@@ -8401,29 +8637,57 @@ export function CodexAccountsPage() {
         const quotaBarWidth =
           summary.quotaUnlimited === true ? 100 : usedPercent;
         return (
-          <div
-            className="quota-item codex-api-key-quota-item new-api"
-            title={`${t("codex.cockpitApi.balance", "额度")}：${quotaValueText}`}
-          >
-            <div className="quota-header">
-              <Database size={14} />
-              <span className="quota-label">
-                {t("codex.cockpitApi.balance", "额度")}
-              </span>
-              <span className="quota-pct high">{quotaValueText}</span>
+          <div className="codex-api-key-usage-panel new-api-daily-panel">
+            <div
+              className="quota-item codex-api-key-quota-item new-api"
+              title={`${t("codex.cockpitApi.balance", "额度")}：${quotaValueText}`}
+            >
+              <div className="quota-header">
+                <Database size={14} />
+                <span className="quota-label">
+                  {t("codex.cockpitApi.balance", "额度")}
+                </span>
+                <span className="quota-pct high">{quotaValueText}</span>
+              </div>
+              <div className="quota-bar-track">
+                <div
+                  className="quota-bar high"
+                  style={{ width: `${quotaBarWidth}%` }}
+                />
+              </div>
+              {expiresText !== "-" && (
+                <span className="quota-reset">
+                  {t("codex.modelProviders.usage.fields.expiresAt", "过期时间")}：
+                  {expiresText}
+                </span>
+              )}
             </div>
-            <div className="quota-bar-track">
-              <div
-                className="quota-bar high"
-                style={{ width: `${quotaBarWidth}%` }}
-              />
+            <div className="codex-api-key-usage-grid daily-quota">
+              <div>
+                <span>
+                  {t(
+                    "codex.modelProviders.usage.fields.todayRequests",
+                    "今日请求",
+                  )}
+                </span>
+                <strong>
+                  {summary.todayRequests == null
+                    ? "-"
+                    : formatCockpitApiInteger(summary.todayRequests)}
+                </strong>
+              </div>
+              <div>
+                <span>
+                  {t(
+                    "codex.modelProviders.usage.fields.todayCost",
+                    "今日消耗额度",
+                  )}
+                </span>
+                <strong>
+                  {formatApiKeyUsageMoney(summary.todayCost, summary.unit)}
+                </strong>
+              </div>
             </div>
-            {expiresText !== "-" && (
-              <span className="quota-reset">
-                {t("codex.modelProviders.usage.fields.expiresAt", "过期时间")}：
-                {expiresText}
-              </span>
-            )}
           </div>
         );
       }
@@ -8500,14 +8764,16 @@ export function CodexAccountsPage() {
                   )}
                 </span>
                 <strong>
-                  {formatCockpitApiInteger(summary.todayRequests ?? 0)}
+                  {summary.todayRequests == null
+                    ? "-"
+                    : formatCockpitApiInteger(summary.todayRequests)}
                 </strong>
               </div>
               <div>
                 <span>
                   {t(
                     "codex.modelProviders.usage.fields.todayCost",
-                    "今日余额消耗",
+                    "今日消耗额度",
                   )}
                 </span>
                 <strong>
@@ -8585,6 +8851,33 @@ export function CodexAccountsPage() {
                                 "totalAvailable",
                               );
                         })()}
+                      </strong>
+                    </div>
+                    <div>
+                      <span>
+                        {t(
+                          "codex.modelProviders.usage.fields.todayRequests",
+                          "今日请求",
+                        )}
+                      </span>
+                      <strong>
+                        {summary.todayRequests == null
+                          ? "-"
+                          : formatCockpitApiInteger(summary.todayRequests)}
+                      </strong>
+                    </div>
+                    <div>
+                      <span>
+                        {t(
+                          "codex.modelProviders.usage.fields.todayCost",
+                          "今日消耗额度",
+                        )}
+                      </span>
+                      <strong>
+                        {formatApiKeyUsageMoney(
+                          summary.todayCost,
+                          summary.unit,
+                        )}
                       </strong>
                     </div>
                     <div>
@@ -8669,14 +8962,16 @@ export function CodexAccountsPage() {
                         )}
                       </span>
                       <strong>
-                        {formatCockpitApiInteger(summary.todayRequests ?? 0)}
+                        {summary.todayRequests == null
+                          ? "-"
+                          : formatCockpitApiInteger(summary.todayRequests)}
                       </strong>
                     </div>
                     <div>
                       <span>
                         {t(
                           "codex.modelProviders.usage.fields.todayCost",
-                          "今日余额消耗",
+                          "今日消耗额度",
                         )}
                       </span>
                       <strong>
@@ -8895,6 +9190,10 @@ export function CodexAccountsPage() {
               baseUrl: savedProvider.baseUrl,
               apiKey: validation.apiKey,
               integrationType: savedProvider.integrationType ?? null,
+              usageIdentity: resolveCodexModelProviderUsageIdentity({
+                provider: savedProvider,
+                apiKey: validation.apiKey,
+              }),
             });
             if (
               (usageSummary.mode === "sub2api" ||
@@ -9259,6 +9558,46 @@ export function CodexAccountsPage() {
       accountPresentations.get(account.id) ??
       buildCodexAccountPresentation(account, t),
     [accountPresentations, t],
+  );
+
+  const codexAutoSwitchScopeAccounts = useMemo<AutoSwitchScopeAccount[]>(
+    () =>
+      accounts
+        .filter((account) => !isCodexApiKeyAccount(account))
+        .map((account) => {
+          const rawLabel =
+            resolvePresentation(account).displayName ||
+            account.email ||
+            account.id;
+          return {
+            id: account.id,
+            label: maskAccountText(rawLabel),
+            searchableText: `${rawLabel} ${account.email || ""}`,
+            tags: account.tags || [],
+            type: "official_oauth",
+          };
+        }),
+    [accounts, maskAccountText, resolvePresentation],
+  );
+
+  const codexAutoSwitchScopeGroups = useMemo<AutoSwitchScopeGroup[]>(
+    () =>
+      codexGroups.map((group) => ({
+        id: group.id,
+        name: group.name,
+        accountIds: group.accountIds || [],
+      })),
+    [codexGroups],
+  );
+
+  const codexAutoSwitchScopeTypeOptions = useMemo(
+    () => [
+      {
+        value: "official_oauth",
+        label: t("codex.autoSwitch.officialAccounts", "官方 OAuth 账号"),
+      },
+    ],
+    [t],
   );
 
   const resolveSubscriptionPresentation = useCallback(
@@ -11676,14 +12015,22 @@ export function CodexAccountsPage() {
       const apiKeyUsageMode = resolveApiKeyUsageMode(
         apiKeyUsageMap[account.id]?.summary,
       );
+      const expectedApiKeyUsageIntegrationType =
+        apiKeyUsageProvider?.integrationType ??
+        resolveKnownGmdRelayUsageIntegrationType(apiBaseUrlText);
       const showApiKeyUsagePanel = shouldShowCodexApiKeyUsagePanel(
         account,
         hideRelayQuota,
+        expectedApiKeyUsageIntegrationType,
       );
       const isSub2ApiUsageAccount =
         showApiKeyUsagePanel &&
         (apiKeyUsageMode === "sub2api" ||
-          apiKeyUsageProvider?.integrationType === "sub2api");
+          expectedApiKeyUsageIntegrationType === "sub2api");
+      const isNewApiUsageAccount =
+        showApiKeyUsagePanel &&
+        (apiKeyUsageMode === "new_api" ||
+          expectedApiKeyUsageIntegrationType === "new_api");
       const isTokenPlanUsageAccount =
         showApiKeyUsagePanel && apiKeyUsageMode === "token_plan";
       const isQuotaAwareApiKeyAccount =
@@ -11691,8 +12038,8 @@ export function CodexAccountsPage() {
         !isSponsorApiKeyAccount &&
         (apiKeyUsageMode !== null ||
           isDeepSeekAccount(account) ||
-          apiKeyUsageProvider?.integrationType === "new_api" ||
-          apiKeyUsageProvider?.integrationType === "sub2api");
+          expectedApiKeyUsageIntegrationType === "new_api" ||
+          expectedApiKeyUsageIntegrationType === "sub2api");
       const shouldRenderQuotaSection =
         showApiKeyUsagePanel ||
         !isApiKeyAccount ||
@@ -11903,7 +12250,9 @@ export function CodexAccountsPage() {
                 >
                   {apiBaseUrlLine}
                 </span>
-                {(isSub2ApiUsageAccount || isTokenPlanUsageAccount) && (
+                {(isSub2ApiUsageAccount ||
+                  isNewApiUsageAccount ||
+                  isTokenPlanUsageAccount) && (
                   <button
                     type="button"
                     className="codex-provider-inline-switch"
@@ -13091,14 +13440,22 @@ export function CodexAccountsPage() {
       const apiKeyUsageMode = resolveApiKeyUsageMode(
         apiKeyUsageMap[account.id]?.summary,
       );
+      const expectedApiKeyUsageIntegrationType =
+        apiKeyUsageProvider?.integrationType ??
+        resolveKnownGmdRelayUsageIntegrationType(apiBaseUrlText);
       const showApiKeyUsagePanel = shouldShowCodexApiKeyUsagePanel(
         account,
         hideRelayQuota,
+        expectedApiKeyUsageIntegrationType,
       );
       const isSub2ApiUsageAccount =
         showApiKeyUsagePanel &&
         (apiKeyUsageMode === "sub2api" ||
-          apiKeyUsageProvider?.integrationType === "sub2api");
+          expectedApiKeyUsageIntegrationType === "sub2api");
+      const isNewApiUsageAccount =
+        showApiKeyUsagePanel &&
+        (apiKeyUsageMode === "new_api" ||
+          expectedApiKeyUsageIntegrationType === "new_api");
       const isTokenPlanUsageAccount =
         showApiKeyUsagePanel && apiKeyUsageMode === "token_plan";
       const isQuotaAwareApiKeyAccount =
@@ -13106,8 +13463,8 @@ export function CodexAccountsPage() {
         !isSponsorApiKeyAccount &&
         (apiKeyUsageMode !== null ||
           isDeepSeekAccount(account) ||
-          apiKeyUsageProvider?.integrationType === "new_api" ||
-          apiKeyUsageProvider?.integrationType === "sub2api");
+          expectedApiKeyUsageIntegrationType === "new_api" ||
+          expectedApiKeyUsageIntegrationType === "sub2api");
       const displayPlanClass = isSponsorApiKeyAccount
         ? "sponsor-api"
         : isQuotaAwareApiKeyAccount
@@ -13276,7 +13633,9 @@ export function CodexAccountsPage() {
                     >
                       {apiBaseUrlLine}
                     </span>
-                    {(isSub2ApiUsageAccount || isTokenPlanUsageAccount) && (
+                    {(isSub2ApiUsageAccount ||
+                      isNewApiUsageAccount ||
+                      isTokenPlanUsageAccount) && (
                       <button
                         type="button"
                         className="codex-provider-inline-switch"
@@ -13747,13 +14106,23 @@ export function CodexAccountsPage() {
     const state = apiKeyUsageMap[account.id];
     const summary = state?.summary;
     const provider = resolveUsageProviderForApiKeyAccount(account);
+    const expectedIntegrationType =
+      provider?.integrationType ??
+      resolveKnownGmdRelayUsageIntegrationType(account.api_base_url);
     const usageMode =
       resolveApiKeyUsageMode(summary) ??
-      (provider?.integrationType === "sub2api" ? "sub2api" : null);
+      expectedIntegrationType;
     if (!usageMode) return null;
     const coreDetailKeys =
       usageMode === "new_api"
-        ? new Set(["mode", "totalGranted", "totalAvailable", "expiresAt"])
+        ? new Set([
+            "mode",
+            "totalGranted",
+            "totalAvailable",
+            "todayRequests",
+            "todayCost",
+            "expiresAt",
+          ])
         : usageMode === "sub2api"
           ? new Set([
               "mode",
@@ -13800,6 +14169,28 @@ export function CodexAccountsPage() {
                 newApiQuota.available,
                 summary?.unit,
               ),
+            },
+            {
+              key: "todayRequests",
+              label: t(
+                "codex.modelProviders.usage.fields.todayRequests",
+                "今日请求",
+              ),
+              value: summary
+                ? summary.todayRequests == null
+                  ? "-"
+                  : formatCockpitApiInteger(summary.todayRequests)
+                : "-",
+            },
+            {
+              key: "todayCost",
+              label: t(
+                "codex.modelProviders.usage.fields.todayCost",
+                "今日消耗额度",
+              ),
+              value: summary
+                ? formatApiKeyUsageMoney(summary.todayCost, summary.unit)
+                : "-",
             },
             {
               key: "expiresAt",
@@ -13875,14 +14266,16 @@ export function CodexAccountsPage() {
                   "今日请求",
                 ),
                 value: summary
-                  ? formatCockpitApiInteger(summary.todayRequests ?? 0)
+                  ? summary.todayRequests == null
+                    ? "-"
+                    : formatCockpitApiInteger(summary.todayRequests)
                   : "-",
               },
               {
                 key: "todayCost",
                 label: t(
                   "codex.modelProviders.usage.fields.todayCost",
-                  "今日余额消耗",
+                  "今日消耗额度",
                 ),
                 value: summary
                   ? formatApiKeyUsageMoney(summary.todayCost, summary.unit)
@@ -14398,6 +14791,350 @@ export function CodexAccountsPage() {
           </div>
         </div>
       </div>
+    );
+  };
+
+  const renderCodexAutoSwitchSettings = () => {
+    const availableAccountIds = new Set(
+      codexAutoSwitchScopeAccounts.map((account) => account.id),
+    );
+    const selectedAccountIds = codexAutoSwitchConfig.selectedAccountIds.filter(
+      (accountId) => availableAccountIds.has(accountId),
+    );
+    const scopeCount =
+      codexAutoSwitchConfig.scopeMode === "all_accounts"
+        ? codexAutoSwitchScopeAccounts.length
+        : selectedAccountIds.length;
+    const refreshOptions = [
+      {
+        value: -1,
+        label: t("codex.autoSwitch.refreshDisabled", "不自动刷新"),
+      },
+      { value: 2, label: "2 分钟" },
+      { value: 5, label: "5 分钟" },
+      { value: 10, label: "10 分钟" },
+      { value: 15, label: "15 分钟" },
+      ...(codexAutoSwitchConfig.refreshMinutes > 0 &&
+      ![2, 5, 10, 15].includes(codexAutoSwitchConfig.refreshMinutes)
+        ? [
+            {
+              value: codexAutoSwitchConfig.refreshMinutes,
+              label: `${codexAutoSwitchConfig.refreshMinutes} 分钟`,
+            },
+          ]
+        : []),
+    ];
+    const commitThreshold = (
+      field:
+        | "codex_auto_switch_primary_threshold"
+        | "codex_auto_switch_secondary_threshold",
+      draft: string,
+      setDraft: (value: string) => void,
+      currentValue: number,
+    ) => {
+      const parsed = Number(draft.trim());
+      if (!Number.isInteger(parsed) || parsed < 0 || parsed > 100) {
+        setDraft(String(currentValue));
+        return;
+      }
+      setDraft(String(parsed));
+      void saveCodexAutoSwitchConfig({ [field]: parsed });
+    };
+
+    return (
+      <section className="codex-auto-switch-panel">
+        <div className="codex-auto-switch-header">
+          <div className="codex-auto-switch-title-wrap">
+            <div className="codex-auto-switch-icon" aria-hidden="true">
+              <RotateCw size={17} />
+            </div>
+            <div>
+              <h2>{t("codex.autoSwitch.manageTitle", "自动切号")}</h2>
+              <p>
+                {t(
+                  "codex.autoSwitch.manageDescription",
+                  "在账号管理页指定参与自动切号的账号，并设置触发阈值。",
+                )}
+              </p>
+            </div>
+          </div>
+          <div className="codex-auto-switch-header-actions">
+            <span
+              className={`codex-auto-switch-status ${
+                codexAutoSwitchConfig.enabled ? "is-enabled" : "is-disabled"
+              }`}
+            >
+              {codexAutoSwitchConfig.enabled
+                ? t("common.enabled", "已启用")
+                : t("common.disabled", "未启用")}
+            </span>
+            <label className="codex-auto-switch-toggle">
+              <input
+                type="checkbox"
+                checked={codexAutoSwitchConfig.enabled}
+                disabled={codexAutoSwitchConfigSaving}
+                onChange={(event) =>
+                  void saveCodexAutoSwitchConfig({
+                    codex_auto_switch_enabled: event.target.checked,
+                  })
+                }
+              />
+              <span aria-hidden="true" />
+            </label>
+          </div>
+        </div>
+
+        {codexAutoSwitchConfigError && (
+          <div className="codex-auto-switch-error" role="alert">
+            <CircleAlert size={15} />
+            <span>{codexAutoSwitchConfigError}</span>
+          </div>
+        )}
+
+        {codexAutoSwitchConfigLoading ? (
+          <div className="codex-auto-switch-loading">
+            <RefreshCw size={15} className="loading-spinner" />
+            <span>{t("common.loading", "加载中...")}</span>
+          </div>
+        ) : (
+          <>
+            <div className="codex-auto-switch-fields">
+              <label className="codex-auto-switch-field">
+                <span>
+                  primary_window
+                  <small>{t("codex.quota.hourly", "5 小时配额")}</small>
+                </span>
+                <div className="codex-auto-switch-number-input">
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={codexAutoSwitchPrimaryDraft}
+                    disabled={codexAutoSwitchConfigSaving}
+                    onChange={(event) =>
+                      setCodexAutoSwitchPrimaryDraft(event.target.value)
+                    }
+                    onBlur={() =>
+                      commitThreshold(
+                        "codex_auto_switch_primary_threshold",
+                        codexAutoSwitchPrimaryDraft,
+                        setCodexAutoSwitchPrimaryDraft,
+                        codexAutoSwitchConfig.primaryThreshold,
+                      )
+                    }
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        event.currentTarget.blur();
+                      }
+                    }}
+                  />
+                  <b>%</b>
+                </div>
+              </label>
+              <label className="codex-auto-switch-field">
+                <span>
+                  secondary_window
+                  <small>{t("codex.quota.weekly", "周配额")}</small>
+                </span>
+                <div className="codex-auto-switch-number-input">
+                  <input
+                    type="number"
+                    min={0}
+                    max={100}
+                    value={codexAutoSwitchSecondaryDraft}
+                    disabled={codexAutoSwitchConfigSaving}
+                    onChange={(event) =>
+                      setCodexAutoSwitchSecondaryDraft(event.target.value)
+                    }
+                    onBlur={() =>
+                      commitThreshold(
+                        "codex_auto_switch_secondary_threshold",
+                        codexAutoSwitchSecondaryDraft,
+                        setCodexAutoSwitchSecondaryDraft,
+                        codexAutoSwitchConfig.secondaryThreshold,
+                      )
+                    }
+                    onKeyDown={(event) => {
+                      if (event.key === "Enter") {
+                        event.preventDefault();
+                        event.currentTarget.blur();
+                      }
+                    }}
+                  />
+                  <b>%</b>
+                </div>
+              </label>
+              <label className="codex-auto-switch-field">
+                <span>
+                  {t("codex.autoSwitch.refreshInterval", "额度刷新间隔")}
+                  <small>
+                    {t(
+                      "codex.autoSwitch.refreshIntervalDescription",
+                      "自动检测依赖额度刷新",
+                    )}
+                  </small>
+                </span>
+                <select
+                  value={String(codexAutoSwitchConfig.refreshMinutes)}
+                  disabled={codexAutoSwitchConfigSaving}
+                  onChange={(event) =>
+                    void saveCodexAutoSwitchConfig({
+                      codex_auto_refresh_minutes: Number(event.target.value),
+                    })
+                  }
+                >
+                  {refreshOptions.map((option) => (
+                    <option key={option.value} value={option.value}>
+                      {option.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+
+            <div className="codex-auto-switch-or-hint">
+              {t(
+                "codex.autoSwitch.thresholdRule",
+                "命中任一窗口阈值即触发：primary_window ≤ {{primary}}% 或 secondary_window ≤ {{secondary}}%",
+                {
+                  primary: codexAutoSwitchConfig.primaryThreshold,
+                  secondary: codexAutoSwitchConfig.secondaryThreshold,
+                },
+              )}
+            </div>
+
+            <div className="codex-auto-switch-scope-row">
+              <div className="codex-auto-switch-scope-copy">
+                <strong>
+                  {t(
+                    "settings.general.codexAutoSwitchAccountScope",
+                    "Codex 自动切号账号范围",
+                  )}
+                </strong>
+                <span>
+                  {t(
+                    "settings.general.codexAutoSwitchAccountScopeDesc",
+                    "仅在指定范围内监控并切换账号。",
+                  )}
+                </span>
+              </div>
+              <div className="codex-auto-switch-scope-control">
+                <AutoSwitchAccountScopeSelector
+                  mode={codexAutoSwitchConfig.scopeMode}
+                  onModeChange={(mode) =>
+                    void saveCodexAutoSwitchConfig(
+                      mode === "all_accounts"
+                        ? {
+                            codex_auto_switch_account_scope_mode: mode,
+                            codex_auto_switch_selected_account_ids: [],
+                          }
+                        : { codex_auto_switch_account_scope_mode: mode },
+                    )
+                  }
+                  selectedAccountIds={selectedAccountIds}
+                  onSelectedAccountIdsChange={(ids) =>
+                    void saveCodexAutoSwitchConfig({
+                      codex_auto_switch_selected_account_ids: ids,
+                    })
+                  }
+                  accounts={codexAutoSwitchScopeAccounts}
+                  groups={codexAutoSwitchScopeGroups}
+                  typeOptions={codexAutoSwitchScopeTypeOptions}
+                  useDialog
+                />
+              </div>
+              <span className="codex-auto-switch-scope-count">
+                {codexAutoSwitchConfig.scopeMode === "all_accounts"
+                  ? t("codex.autoSwitch.allAccountsCount", {
+                      count: scopeCount,
+                      defaultValue: "全部账号（{{count}}）",
+                    })
+                  : t("codex.autoSwitch.selectedAccountsCount", {
+                      count: scopeCount,
+                      defaultValue: "已指定 {{count}} 个账号",
+                    })}
+              </span>
+            </div>
+
+            <div className="codex-auto-switch-options">
+              <label className="codex-auto-switch-option">
+                <input
+                  type="checkbox"
+                  checked={codexAutoSwitchConfig.launchOnSwitch}
+                  disabled={codexAutoSwitchConfigSaving}
+                  onChange={(event) =>
+                    void saveCodexAutoSwitchConfig({
+                      codex_launch_on_switch: event.target.checked,
+                    })
+                  }
+                />
+                <span>
+                  <strong>
+                    {t(
+                      "settings.general.codexLaunchOnSwitch",
+                      "切换 Codex 时自动启动 Codex App",
+                    )}
+                  </strong>
+                  <small>
+                    {t(
+                      "settings.general.codexLaunchOnSwitchDesc",
+                      "切号后自动启动或重启 Codex App",
+                    )}
+                  </small>
+                </span>
+              </label>
+              <label className="codex-auto-switch-option">
+                <input
+                  type="checkbox"
+                  checked={codexAutoSwitchConfig.restartSpecifiedAppOnSwitch}
+                  disabled={codexAutoSwitchConfigSaving}
+                  onChange={(event) =>
+                    void saveCodexAutoSwitchConfig({
+                      codex_restart_specified_app_on_switch:
+                        event.target.checked,
+                    })
+                  }
+                />
+                <span>
+                  <strong>
+                    {t(
+                      "settings.general.codexRestartSpecifiedAppOnSwitch",
+                      "切号时重启指定的 Codex App",
+                    )}
+                  </strong>
+                  <small>
+                    {t(
+                      "settings.general.codexRestartSpecifiedAppOnSwitchDesc",
+                      "仅在设置了指定 App 路径时生效",
+                    )}
+                  </small>
+                </span>
+              </label>
+            </div>
+
+            <div className="codex-auto-switch-footer-hint">
+              {codexAutoSwitchConfig.enabled
+                ? t(
+                    "codex.autoSwitch.enabledHint",
+                    "自动切号已启用。额度刷新成功后会检查当前账号，命中阈值时切换到可用额度更高的指定账号。",
+                  )
+                : t(
+                    "codex.autoSwitch.disabledHint",
+                    "当前未启用自动切号；以上配置可以先保存，启用开关后才会生效。",
+                  )}
+              {codexAutoSwitchConfig.refreshMinutes === -1 && (
+                <span>
+                  {t(
+                    "codex.autoSwitch.refreshDisabledHint",
+                    "当前额度刷新已关闭，自动切号不会被定时检测触发。",
+                  )}
+                </span>
+              )}
+            </div>
+          </>
+        )}
+      </section>
     );
   };
 
@@ -15070,6 +15807,8 @@ export function CodexAccountsPage() {
 
       {activeTab === "overview" && (
         <>
+          {renderCodexAutoSwitchSettings()}
+
           {message && (
             <div
               className={`message-bar ${message.tone === "error" ? "error" : "success"}`}

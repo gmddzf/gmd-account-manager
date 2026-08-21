@@ -2330,6 +2330,7 @@
       "resetCreditGrantedAt": "Concedido",
       "resetCreditExpiresAt": "Vence",
       "windowAccountCostHint": "Coste de cuenta (estimado por precios del modelo)",
+      "windowAccountCostShort": "Estimación local",
       "windowUserCostHint": "Coste de usuario",
       "windowWeeks": "Cuota {{count}} sem.",
       "windowDays": "Cuota {{count}} d",

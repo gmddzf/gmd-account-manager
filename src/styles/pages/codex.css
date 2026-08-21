@@ -3508,6 +3508,10 @@
   gap: 8px;
 }
 
+.codex-api-key-usage-grid.daily-quota {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
 .codex-api-key-usage-panel.table .codex-api-key-usage-grid {
   grid-template-columns: 1fr;
 }
@@ -14330,4 +14334,380 @@ html[data-reduced-motion="true"] .codex-accounts-page .codex-accounts-grid .code
 .deepseek-start-modal .api-provider-chip.active {
   border-color: var(--primary);
   background: color-mix(in srgb, var(--bg-surface) 82%, var(--primary) 18%);
+}
+
+/* Codex auto-switch controls live with the account pool, while the legacy
+   quick-settings and settings-page entry points remain available. */
+.codex-auto-switch-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding: 16px 18px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--bg-card);
+}
+
+.codex-auto-switch-header,
+.codex-auto-switch-title-wrap,
+.codex-auto-switch-header-actions {
+  display: flex;
+  align-items: center;
+}
+
+.codex-auto-switch-header {
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.codex-auto-switch-title-wrap {
+  min-width: 0;
+  gap: 10px;
+}
+
+.codex-auto-switch-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 12%, var(--bg-tertiary));
+}
+
+.codex-auto-switch-title-wrap h2 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 16px;
+  line-height: 1.25;
+}
+
+.codex-auto-switch-title-wrap p {
+  margin: 3px 0 0;
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.codex-auto-switch-header-actions {
+  flex: 0 0 auto;
+  gap: 10px;
+}
+
+.codex-auto-switch-status {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  padding: 0 9px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.codex-auto-switch-status.is-enabled {
+  border-color: color-mix(in srgb, #16a34a 42%, var(--border));
+  color: #15803d;
+  background: color-mix(in srgb, #22c55e 10%, var(--bg-card));
+}
+
+.codex-auto-switch-status.is-disabled {
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+}
+
+.codex-auto-switch-toggle {
+  position: relative;
+  display: inline-flex;
+  flex: 0 0 auto;
+  width: 42px;
+  height: 24px;
+  cursor: pointer;
+}
+
+.codex-auto-switch-toggle input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.codex-auto-switch-toggle > span {
+  position: relative;
+  display: block;
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--border);
+  transition: background 160ms ease;
+}
+
+.codex-auto-switch-toggle > span::after {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgb(0 0 0 / 22%);
+  content: "";
+  transition: transform 160ms ease;
+}
+
+.codex-auto-switch-toggle input:checked + span {
+  background: var(--primary);
+}
+
+.codex-auto-switch-toggle input:checked + span::after {
+  transform: translateX(18px);
+}
+
+.codex-auto-switch-toggle input:focus-visible + span {
+  outline: 2px solid var(--primary);
+  outline-offset: 2px;
+}
+
+.codex-auto-switch-toggle input:disabled + span {
+  opacity: 0.55;
+}
+
+.codex-auto-switch-error,
+.codex-auto-switch-loading {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  font-size: 12px;
+}
+
+.codex-auto-switch-error {
+  border: 1px solid color-mix(in srgb, #ef4444 35%, var(--border));
+  color: #b91c1c;
+  background: color-mix(in srgb, #ef4444 8%, var(--bg-card));
+}
+
+.codex-auto-switch-loading {
+  color: var(--text-secondary);
+  background: var(--bg-tertiary);
+}
+
+.codex-auto-switch-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.codex-auto-switch-field {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  min-width: 0;
+}
+
+.codex-auto-switch-field > span {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text-primary);
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.codex-auto-switch-field > span small {
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.codex-auto-switch-field input,
+.codex-auto-switch-field select {
+  box-sizing: border-box;
+  width: 100%;
+  min-height: 36px;
+  padding: 0 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+  font-size: 13px;
+}
+
+.codex-auto-switch-field input:focus,
+.codex-auto-switch-field select:focus {
+  border-color: var(--primary);
+  outline: 2px solid color-mix(in srgb, var(--primary) 20%, transparent);
+  outline-offset: 0;
+}
+
+.codex-auto-switch-number-input {
+  position: relative;
+}
+
+.codex-auto-switch-number-input input {
+  padding-right: 28px;
+}
+
+.codex-auto-switch-number-input b {
+  position: absolute;
+  top: 50%;
+  right: 10px;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  pointer-events: none;
+  transform: translateY(-50%);
+}
+
+.codex-auto-switch-or-hint,
+.codex-auto-switch-footer-hint {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.codex-auto-switch-or-hint {
+  padding: 8px 10px;
+  border-left: 3px solid color-mix(in srgb, var(--primary) 55%, var(--border));
+  background: color-mix(in srgb, var(--primary) 6%, var(--bg-tertiary));
+}
+
+.codex-auto-switch-scope-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 0.8fr) minmax(260px, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding-top: 2px;
+}
+
+.codex-auto-switch-scope-copy {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.codex-auto-switch-scope-copy strong {
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.codex-auto-switch-scope-copy span,
+.codex-auto-switch-scope-count {
+  color: var(--text-secondary);
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.codex-auto-switch-scope-control {
+  min-width: 0;
+}
+
+.codex-auto-switch-scope-count {
+  justify-self: end;
+  white-space: nowrap;
+}
+
+.codex-auto-switch-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  padding-top: 2px;
+}
+
+.codex-auto-switch-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  min-width: 0;
+  padding: 10px;
+  border: 1px solid var(--border-light);
+  border-radius: 8px;
+  background: var(--bg-tertiary);
+  cursor: pointer;
+}
+
+.codex-auto-switch-option input {
+  flex: 0 0 auto;
+  width: 16px;
+  height: 16px;
+  margin-top: 1px;
+  accent-color: var(--primary);
+}
+
+.codex-auto-switch-option > span {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+}
+
+.codex-auto-switch-option strong {
+  color: var(--text-primary);
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.codex-auto-switch-option small {
+  color: var(--text-secondary);
+  font-size: 11px;
+  line-height: 1.45;
+}
+
+.codex-auto-switch-footer-hint {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding-top: 2px;
+}
+
+@media (max-width: 900px) {
+  .codex-auto-switch-fields {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .codex-auto-switch-scope-row {
+    grid-template-columns: 1fr minmax(240px, 1fr);
+  }
+
+  .codex-auto-switch-scope-count {
+    grid-column: 2;
+    justify-self: start;
+  }
+}
+
+@media (max-width: 640px) {
+  .codex-auto-switch-panel {
+    padding: 14px;
+  }
+
+  .codex-auto-switch-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .codex-auto-switch-header-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .codex-auto-switch-fields,
+  .codex-auto-switch-options,
+  .codex-auto-switch-scope-row {
+    grid-template-columns: 1fr;
+  }
+
+  .codex-auto-switch-scope-count {
+    grid-column: auto;
+    justify-self: start;
+  }
 }

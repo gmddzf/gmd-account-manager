@@ -2330,6 +2330,7 @@
       "resetCreditGrantedAt": "Attribué",
       "resetCreditExpiresAt": "Expire",
       "windowAccountCostHint": "Facturation compte (estimée selon les prix du modèle)",
+      "windowAccountCostShort": "Estimation locale",
       "windowUserCostHint": "Facturation utilisateur",
       "windowWeeks": "Quota {{count}} sem.",
       "windowDays": "Quota {{count}} j",

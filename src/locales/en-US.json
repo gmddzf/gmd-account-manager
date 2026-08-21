@@ -3058,6 +3058,7 @@
       "resetCreditGrantedAt": "Granted",
       "resetCreditExpiresAt": "Expires",
       "windowAccountCostHint": "Account billed (estimated from model prices)",
+      "windowAccountCostShort": "Local estimate",
       "windowUserCostHint": "User billed",
       "windowWeeks": "{{count}}-week quota",
       "windowDays": "{{count}}-day quota",

@@ -2330,6 +2330,7 @@
       "resetCreditGrantedAt": "付与",
       "resetCreditExpiresAt": "期限",
       "windowAccountCostHint": "アカウント課金（モデル価格の概算）",
+      "windowAccountCostShort": "ローカル推定",
       "windowUserCostHint": "ユーザー課金",
       "windowWeeks": "{{count}}週クォータ",
       "windowDays": "{{count}}日クォータ",

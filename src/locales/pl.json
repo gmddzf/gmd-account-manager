@@ -2330,6 +2330,7 @@
       "resetCreditGrantedAt": "Przyznano",
       "resetCreditExpiresAt": "Wygasa",
       "windowAccountCostHint": "Opłata konta (szacunek z cen modelu)",
+      "windowAccountCostShort": "Szacunek lokalny",
       "windowUserCostHint": "Opłata użytkownika",
       "windowWeeks": "Limit {{count}} tyg.",
       "windowDays": "Limit {{count}} dn.",

@@ -8,6 +8,7 @@ import {
   findCodexModelProviderById,
   listCodexModelProviders,
   queryCodexModelProviderUsage,
+  resolveCodexModelProviderUsageIdentity,
   type CodexModelProviderUsageSummary,
 } from './codexModelProviderService';
 import { isModelProviderUsageUnavailableError } from './modelProviderUsageService';
@@ -112,6 +113,11 @@ export async function refreshCodexApiKeyUsageForAccounts(
         baseUrl,
         apiKey,
         integrationType: provider?.integrationType ?? null,
+        usageIdentity: resolveCodexModelProviderUsageIdentity({
+          provider,
+          apiKey,
+          accountId: account.id,
+        }),
       });
       updates[account.id] = { loading: false, summary, updatedAt: Date.now() };
     } catch (error) {

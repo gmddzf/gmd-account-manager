@@ -2330,6 +2330,7 @@
       "resetCreditGrantedAt": "Выдано",
       "resetCreditExpiresAt": "Истекает",
       "windowAccountCostHint": "Счёт аккаунта (оценка по ценам модели)",
+      "windowAccountCostShort": "Локальная оценка",
       "windowUserCostHint": "Счёт пользователя",
       "windowWeeks": "Квота {{count}} нед.",
       "windowDays": "Квота {{count}} дн.",
