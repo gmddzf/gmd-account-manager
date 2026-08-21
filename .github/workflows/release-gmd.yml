@@ -270,8 +270,9 @@ jobs:
             --mac-arch universal \
             --assets-dir target/universal-apple-darwin/release/bundle \
             --output-dir release-assets
-          mapfile -t dmgs < <(find release-assets -maxdepth 1 -type f -name '*.dmg' -print)
-          mapfile -t archives < <(find release-assets -maxdepth 1 -type f -name '*_universal.app.tar.gz' -print)
+          shopt -s nullglob
+          dmgs=(release-assets/*.dmg)
+          archives=(release-assets/*_universal.app.tar.gz)
           test "${#dmgs[@]}" -eq 1
           test "${#archives[@]}" -eq 1
           archive="${archives[0]}"
