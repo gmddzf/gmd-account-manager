@@ -7,6 +7,12 @@ All notable changes to GMD Account Manager will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
+## [1.3.27] - 2026-08-21
+
+### Fixed
+
+- **Fix internal field names and an unresolved placeholder in the Codex auto-switch panel**: five-hour and weekly thresholds now use localized user-facing labels, the account-scope description renders the actual enabled state, and refresh intervals use the active language's unit instead of exposing `primary_window`, `secondary_window`, or `{{status}}`.
+
 ## [1.3.26] - 2026-08-21
 
 ### Added

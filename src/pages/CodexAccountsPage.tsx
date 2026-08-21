@@ -14805,21 +14805,35 @@ export function CodexAccountsPage() {
       codexAutoSwitchConfig.scopeMode === "all_accounts"
         ? codexAutoSwitchScopeAccounts.length
         : selectedAccountIds.length;
+    const primaryWindowLabel = t("codex.quota.hourly", "5 小时配额");
+    const secondaryWindowLabel = t("codex.quota.weekly", "周配额");
+    const switchThresholdLabel = t(
+      "quickSettings.autoSwitch.threshold",
+      "切号阈值",
+    );
+    const autoSwitchStatusLabel = codexAutoSwitchConfig.enabled
+      ? t("common.enabled", "已启用")
+      : t("common.disabled", "已禁用");
+    const refreshMinuteUnit = t("wakeup.refreshInterval.minutes", "分钟");
+    const formatRefreshMinutes = (minutes: number) =>
+      `${minutes} ${refreshMinuteUnit}`;
     const refreshOptions = [
       {
         value: -1,
-        label: t("codex.autoSwitch.refreshDisabled", "不自动刷新"),
+        label: t("wakeup.refreshInterval.disabled", "不自动刷新"),
       },
-      { value: 2, label: "2 分钟" },
-      { value: 5, label: "5 分钟" },
-      { value: 10, label: "10 分钟" },
-      { value: 15, label: "15 分钟" },
+      { value: 2, label: formatRefreshMinutes(2) },
+      { value: 5, label: formatRefreshMinutes(5) },
+      { value: 10, label: formatRefreshMinutes(10) },
+      { value: 15, label: formatRefreshMinutes(15) },
       ...(codexAutoSwitchConfig.refreshMinutes > 0 &&
       ![2, 5, 10, 15].includes(codexAutoSwitchConfig.refreshMinutes)
         ? [
             {
               value: codexAutoSwitchConfig.refreshMinutes,
-              label: `${codexAutoSwitchConfig.refreshMinutes} 分钟`,
+              label: formatRefreshMinutes(
+                codexAutoSwitchConfig.refreshMinutes,
+              ),
             },
           ]
         : []),
@@ -14849,11 +14863,11 @@ export function CodexAccountsPage() {
               <RotateCw size={17} />
             </div>
             <div>
-              <h2>{t("codex.autoSwitch.manageTitle", "自动切号")}</h2>
+              <h2>{t("quickSettings.autoSwitch.title", "自动切号")}</h2>
               <p>
                 {t(
-                  "codex.autoSwitch.manageDescription",
-                  "在账号管理页指定参与自动切号的账号，并设置触发阈值。",
+                  "settings.general.autoSwitchAccountScopeDesc",
+                  "仅在该范围内监控并切换账号。",
                 )}
               </p>
             </div>
@@ -14901,8 +14915,8 @@ export function CodexAccountsPage() {
             <div className="codex-auto-switch-fields">
               <label className="codex-auto-switch-field">
                 <span>
-                  primary_window
-                  <small>{t("codex.quota.hourly", "5 小时配额")}</small>
+                  {primaryWindowLabel}
+                  <small>{switchThresholdLabel}</small>
                 </span>
                 <div className="codex-auto-switch-number-input">
                   <input
@@ -14934,8 +14948,8 @@ export function CodexAccountsPage() {
               </label>
               <label className="codex-auto-switch-field">
                 <span>
-                  secondary_window
-                  <small>{t("codex.quota.weekly", "周配额")}</small>
+                  {secondaryWindowLabel}
+                  <small>{switchThresholdLabel}</small>
                 </span>
                 <div className="codex-auto-switch-number-input">
                   <input
@@ -14967,13 +14981,7 @@ export function CodexAccountsPage() {
               </label>
               <label className="codex-auto-switch-field">
                 <span>
-                  {t("codex.autoSwitch.refreshInterval", "额度刷新间隔")}
-                  <small>
-                    {t(
-                      "codex.autoSwitch.refreshIntervalDescription",
-                      "自动检测依赖额度刷新",
-                    )}
-                  </small>
+                  {t("quickSettings.refreshInterval", "额度刷新间隔")}
                 </span>
                 <select
                   value={String(codexAutoSwitchConfig.refreshMinutes)}
@@ -14994,14 +15002,7 @@ export function CodexAccountsPage() {
             </div>
 
             <div className="codex-auto-switch-or-hint">
-              {t(
-                "codex.autoSwitch.thresholdRule",
-                "命中任一窗口阈值即触发：primary_window ≤ {{primary}}% 或 secondary_window ≤ {{secondary}}%",
-                {
-                  primary: codexAutoSwitchConfig.primaryThreshold,
-                  secondary: codexAutoSwitchConfig.secondaryThreshold,
-                },
-              )}
+              {`${switchThresholdLabel}: ${primaryWindowLabel} ≤ ${codexAutoSwitchConfig.primaryThreshold}% / ${secondaryWindowLabel} ≤ ${codexAutoSwitchConfig.secondaryThreshold}%`}
             </div>
 
             <div className="codex-auto-switch-scope-row">
@@ -15015,7 +15016,11 @@ export function CodexAccountsPage() {
                 <span>
                   {t(
                     "settings.general.codexAutoSwitchAccountScopeDesc",
-                    "仅在指定范围内监控并切换账号。",
+                    {
+                      status: autoSwitchStatusLabel,
+                      defaultValue:
+                        "当前 Codex 自动切号状态：{{status}}。仅在该范围内参与切号。",
+                    },
                   )}
                 </span>
               </div>
