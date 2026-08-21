@@ -244,7 +244,35 @@ export const useCodexAccountStore = create<CodexAccountState>((set, get) => ({
       throw new Error(CODEX_STALE_ACCOUNT_ERROR);
     }
 
-    const account = await codexService.switchCodexAccount(accountId);
+    let account: CodexAccount;
+    try {
+      account = await codexService.switchCodexAccount(accountId);
+    } catch (error) {
+      // The backend can finish writing the account and then report a launch or
+      // final verification error. Re-read authoritative state before surfacing
+      // that error so the UI never keeps showing the previous account.
+      try {
+        const [latestAccounts, currentAccount] = await Promise.all([
+          codexService.listCodexAccounts(),
+          codexService.getCurrentCodexAccount(),
+        ]);
+        invalidateCodexFetchRequests();
+        set({
+          accounts: latestAccounts,
+          accountsLoaded: true,
+          currentAccount,
+          loading: false,
+        });
+        persistCodexAccountsCache(latestAccounts);
+        persistCodexCurrentAccountCache(currentAccount);
+      } catch (refreshError) {
+        console.warn(
+          '[Codex Switch][Store] failed to refresh state after switch error',
+          refreshError,
+        );
+      }
+      throw error;
+    }
     console.info('[Codex Switch][Store] switchCodexAccount finished', {
       accountId,
       elapsedMs: Math.round(performance.now() - flowStartedAt),

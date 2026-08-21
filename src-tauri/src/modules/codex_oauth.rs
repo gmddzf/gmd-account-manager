@@ -19,6 +19,8 @@ const TOKEN_ENDPOINT: &str = "https://auth.openai.com/oauth/token";
 const SCOPES: &str =
     "openid profile email offline_access api.connectors.read api.connectors.invoke";
 const ORIGINATOR: &str = "codex_vscode";
+/// auth.openai.com expects the User-Agent product to match `originator`.
+const AUTH_USER_AGENT: &str = "codex_vscode/0.146.0";
 const OAUTH_CALLBACK_PORT: u16 = 1455;
 const OAUTH_PORT_IN_USE_CODE: &str = "CODEX_OAUTH_PORT_IN_USE";
 const OAUTH_STATE_FILE: &str = "codex_oauth_pending.json";
@@ -29,6 +31,12 @@ const TOKEN_REFRESH_TIMEOUT: Duration = Duration::from_secs(25);
 
 pub fn get_callback_port() -> u16 {
     OAUTH_CALLBACK_PORT
+}
+
+fn apply_codex_auth_identity_headers(request: reqwest::RequestBuilder) -> reqwest::RequestBuilder {
+    request
+        .header("User-Agent", AUTH_USER_AGENT)
+        .header("originator", ORIGINATOR)
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -677,8 +685,7 @@ async fn exchange_code_for_token_internal(
 
     logger::log_info("Codex OAuth 开始交换 Token");
 
-    let response = client
-        .post(TOKEN_ENDPOINT)
+    let response = apply_codex_auth_identity_headers(client.post(TOKEN_ENDPOINT))
         .form(&params)
         .send()
         .await
@@ -962,8 +969,7 @@ pub async fn refresh_access_token_with_fallback(
 
     logger::log_info("Codex Token 刷新中...");
 
-    let response = client
-        .post(TOKEN_ENDPOINT)
+    let response = apply_codex_auth_identity_headers(client.post(TOKEN_ENDPOINT))
         .json(&serde_json::json!({
             "client_id": CLIENT_ID,
             "grant_type": "refresh_token",
@@ -1035,7 +1041,7 @@ pub async fn refresh_access_token_with_fallback(
 mod tests {
     use super::{
         authorize_url_matches_pending, is_callback_navigation, is_token_expired, OAuthState,
-        TOKEN_REFRESH_SKEW_SECONDS,
+        AUTH_USER_AGENT, ORIGINATOR, TOKEN_REFRESH_SKEW_SECONDS,
     };
     use base64::{engine::general_purpose::URL_SAFE_NO_PAD, Engine};
 
@@ -1043,6 +1049,13 @@ mod tests {
         let header = URL_SAFE_NO_PAD.encode(r#"{"alg":"none","typ":"JWT"}"#);
         let payload = URL_SAFE_NO_PAD.encode(serde_json::json!({ "exp": exp }).to_string());
         format!("{}.{}.sig", header, payload)
+    }
+
+    #[test]
+    fn credential_face_user_agent_pairs_with_originator() {
+        assert_eq!(ORIGINATOR, "codex_vscode");
+        assert_eq!(AUTH_USER_AGENT.split('/').next(), Some(ORIGINATOR));
+        assert_eq!(AUTH_USER_AGENT, "codex_vscode/0.146.0");
     }
 
     fn pending(auth_url: &str) -> OAuthState {

@@ -17039,7 +17039,29 @@ pub async fn activate_local_access_for_dir(
         .clone()
         .ok_or_else(|| "API 服务集合尚未创建".to_string())?;
     write_local_access_profile_takeover(profile_dir, &collection, None).await?;
-    Ok(state)
+    let attachment = inspect_local_access_profile_attachment(profile_dir, Some(&collection));
+    if !attachment.config_attached || !attachment.auth_attached || attachment.error.is_some() {
+        return Err(format!(
+            "API 服务已启用，但 Codex 配置接管校验失败: profile_dir={}, config_attached={}, auth_attached={}, error={}",
+            attachment.profile_dir,
+            attachment.config_attached,
+            attachment.auth_attached,
+            attachment.error.unwrap_or_else(|| "-".to_string())
+        ));
+    }
+
+    let verified_state = snapshot_state().await?;
+    let service_enabled = verified_state
+        .collection
+        .as_ref()
+        .is_some_and(|collection| collection.enabled);
+    if !service_enabled || !verified_state.running {
+        return Err(format!(
+            "API 服务启动校验失败: enabled={}, running={}",
+            service_enabled, verified_state.running
+        ));
+    }
+    Ok(verified_state)
 }
 
 pub async fn prepare_local_access_for_bound_profile_dir(

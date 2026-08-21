@@ -3,9 +3,12 @@ const CODEX_IMPORT_SYNC_API_SERVICE_STORAGE_KEY =
 
 export const readCodexImportSyncApiService = (): boolean => {
   try {
-    return localStorage.getItem(CODEX_IMPORT_SYNC_API_SERVICE_STORAGE_KEY) === "true";
+    const stored = localStorage.getItem(
+      CODEX_IMPORT_SYNC_API_SERVICE_STORAGE_KEY,
+    );
+    return stored === null ? true : stored === "true";
   } catch {
-    return false;
+    return true;
   }
 };
 

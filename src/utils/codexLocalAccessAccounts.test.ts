@@ -5,6 +5,7 @@ import {
   getCodexLocalAccessAccountIneligibleReason,
   isCodexLocalAccessEligibleAccount,
   isCodexOAuthBindingEligibleAccount,
+  resolveCodexLocalAccessImportSyncOutcome,
   resolveImportedCodexAccountIdsForLocalAccess,
 } from "./codexLocalAccessAccounts.ts";
 import type { CodexAccount } from "../types/codex.ts";
@@ -161,4 +162,32 @@ test("Agent Identity remains eligible when regular free accounts are restricted"
 
   assert.equal(getCodexLocalAccessAccountIneligibleReason(agentIdentity, true), null);
   assert.equal(isCodexOAuthBindingEligibleAccount(agentIdentity), false);
+});
+
+test("OAuth import sync reports added, existing, and skipped accounts distinctly", () => {
+  const baseResult = {
+    state: {} as never,
+    syncedAccountIds: ["added", "existing"],
+    addedAccountIds: ["added"],
+    skippedAccounts: [
+      { accountId: "free", reason: "free_restricted" as const },
+    ],
+  };
+
+  assert.deepEqual(
+    resolveCodexLocalAccessImportSyncOutcome(baseResult, "added"),
+    { status: "added" },
+  );
+  assert.deepEqual(
+    resolveCodexLocalAccessImportSyncOutcome(baseResult, "existing"),
+    { status: "already_present" },
+  );
+  assert.deepEqual(
+    resolveCodexLocalAccessImportSyncOutcome(baseResult, "free"),
+    { status: "skipped", reason: "free_restricted" },
+  );
+  assert.deepEqual(
+    resolveCodexLocalAccessImportSyncOutcome(baseResult, "missing"),
+    { status: "not_reported" },
+  );
 });

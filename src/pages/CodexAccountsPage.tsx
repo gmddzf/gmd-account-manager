@@ -121,6 +121,7 @@ import {
   canAddCodexAccountToLocalAccess,
   filterCodexLocalAccessAccountIds,
   isCodexOAuthBindingEligibleAccount,
+  resolveCodexLocalAccessImportSyncOutcome,
   resolveImportedCodexAccountIdsForLocalAccess,
 } from "../utils/codexLocalAccessAccounts";
 import {
@@ -5040,9 +5041,77 @@ export function CodexAccountsPage() {
         platformId: "codex",
         reason: "oauth",
       });
+      let oauthSuccessMessage = t("common.shared.oauth.success", "授权成功");
       if (!reauthTargetAccountId && account?.id) {
         try {
-          await syncImportedAccountsToApiService([account.id]);
+          const syncResult = await syncImportedAccountsToApiService([account.id]);
+          if (syncResult) {
+            const outcome = resolveCodexLocalAccessImportSyncOutcome(
+              syncResult,
+              account.id,
+            );
+            if (outcome.status === "added") {
+              oauthSuccessMessage = t(
+                "codex.importApiService.oauthAdded",
+                "授权成功，账号已加入 API 服务账号池",
+              );
+            } else if (outcome.status === "already_present") {
+              oauthSuccessMessage = t(
+                "codex.importApiService.oauthAlreadyPresent",
+                "授权成功，账号已在 API 服务账号池中",
+              );
+            } else if (
+              outcome.status === "skipped" ||
+              outcome.status === "not_reported"
+            ) {
+              const reason =
+                outcome.status === "not_reported"
+                  ? t(
+                      "codex.importApiService.skipReasonNotReported",
+                      "API 服务未返回该账号的同步结果",
+                    )
+                  : outcome.reason === "free_restricted"
+                    ? t(
+                        "codex.importApiService.skipReasonFreeRestricted",
+                        "API 服务当前限制 Free 账号",
+                      )
+                    : outcome.reason === "not_found"
+                      ? t(
+                          "codex.importApiService.skipReasonNotFound",
+                          "授权账号保存后未能在账号库中找到",
+                        )
+                      : outcome.reason === "pending_oauth"
+                        ? t(
+                            "codex.importApiService.skipReasonPendingOAuth",
+                            "账号仍处于待授权状态",
+                          )
+                        : outcome.reason === "web_session_quota_only"
+                          ? t(
+                              "codex.importApiService.skipReasonWebSession",
+                              "Web Session 账号仅支持查看额度",
+                            )
+                          : outcome.reason === "chat_completions_api_key"
+                            ? t(
+                                "codex.importApiService.skipReasonChatCompletions",
+                                "该账号不是 Responses 接口账号",
+                              )
+                            : t(
+                                "codex.importApiService.skipReasonUnsupported",
+                                "该账号类型暂不支持 API 服务",
+                              );
+              setAddStatus("error");
+              setAddMessage(
+                t("codex.importApiService.oauthSkipped", {
+                  defaultValue: "授权成功，但账号未加入 API 服务：{{reason}}",
+                  reason,
+                }),
+              );
+              oauthActiveRef.current = false;
+              oauthCompletingRef.current = false;
+              oauthLoginIdRef.current = null;
+              return;
+            }
+          }
         } catch (error) {
           setAddStatus("error");
           setAddMessage(
@@ -5058,7 +5127,7 @@ export function CodexAccountsPage() {
         }
       }
       setAddStatus("success");
-      setAddMessage(t("common.shared.oauth.success", "授权成功"));
+      setAddMessage(oauthSuccessMessage);
       oauthActiveRef.current = false;
       oauthCompletingRef.current = false;
       oauthLoginIdRef.current = null;
@@ -5713,6 +5782,12 @@ export function CodexAccountsPage() {
           });
         }
         return account;
+      } catch (error) {
+        await Promise.allSettled([
+          fetchCurrentAccount({ allowEmpty: true }),
+          reloadLocalAccessLaunchCurrent(),
+        ]);
+        throw error;
       } finally {
         setSwitching(null);
         console.info("[Codex Switch][UI] button loading finished", {
@@ -5723,6 +5798,8 @@ export function CodexAccountsPage() {
     },
     [
       maskAccountText,
+      fetchCurrentAccount,
+      reloadLocalAccessLaunchCurrent,
       setMessage,
       switchAccount,
       t,
@@ -10800,6 +10877,13 @@ export function CodexAccountsPage() {
         }
         return nextState;
       } catch (error) {
+        await Promise.allSettled([
+          codexLocalAccessService
+            .getCodexLocalAccessState()
+            .then(setLocalAccessState),
+          fetchCurrentAccount({ allowEmpty: true }),
+          reloadLocalAccessLaunchCurrent(),
+        ]);
         throw new Error(String(error).replace(/^Error:\s*/, ""));
       } finally {
         setLocalAccessStarting(false);
@@ -10812,6 +10896,7 @@ export function CodexAccountsPage() {
     [
       fetchCurrentAccount,
       localAccessCollection,
+      reloadLocalAccessLaunchCurrent,
       requestLocalAccessRiskNotice,
       setMessage,
       t,
@@ -16912,6 +16997,39 @@ export function CodexAccountsPage() {
                           "通过 OpenAI 官方 OAuth 授权您的 Codex 账号。",
                         )}
                       </p>
+                      {!reauthTargetAccount && (
+                        <label className="codex-import-api-service-toggle">
+                          <span className="codex-import-api-service-toggle-copy">
+                            <strong>
+                              {t(
+                                "codex.importApiService.toggle",
+                                "同步加入 API 服务",
+                              )}
+                            </strong>
+                            <small>
+                              {t(
+                                "codex.importApiService.description",
+                                "导入成功后，将符合条件的账号加入 API 服务账号池。",
+                              )}
+                            </small>
+                          </span>
+                          <input
+                            type="checkbox"
+                            checked={syncImportedToApiService}
+                            disabled={
+                              importing ||
+                              addStatus === "loading" ||
+                              oauthCallbackSubmitting
+                            }
+                            onChange={(event) =>
+                              handleSyncImportedToApiServiceChange(
+                                event.target.checked,
+                              )
+                            }
+                          />
+                          <span className="codex-import-api-service-switch" />
+                        </label>
+                      )}
                       {oauthPrepareError ? (
                         <div className="add-status error">
                           <CircleAlert size={16} />

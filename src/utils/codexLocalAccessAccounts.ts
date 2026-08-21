@@ -6,6 +6,10 @@ import {
   isCodexWebSessionAccount,
   type CodexAccount,
 } from '../types/codex.ts';
+import type {
+  CodexLocalAccessAppendAccountsResult,
+  CodexLocalAccessAppendAccountSkipped,
+} from '../types/codexLocalAccess.ts';
 
 const CHAT_COMPLETIONS_PROVIDER_HOSTS = [
   "api.deepseek.com",
@@ -47,6 +51,34 @@ export type CodexLocalAccessAccountIneligibleReason =
   | "free_restricted"
   | "pending_oauth"
   | "web_session_quota_only";
+
+export type CodexLocalAccessImportSyncOutcome =
+  | { status: "added" }
+  | { status: "already_present" }
+  | {
+      status: "skipped";
+      reason: CodexLocalAccessAppendAccountSkipped["reason"];
+    }
+  | { status: "not_reported" };
+
+export function resolveCodexLocalAccessImportSyncOutcome(
+  result: CodexLocalAccessAppendAccountsResult,
+  accountId: string,
+): CodexLocalAccessImportSyncOutcome {
+  if (result.addedAccountIds.includes(accountId)) {
+    return { status: "added" };
+  }
+  if (result.syncedAccountIds.includes(accountId)) {
+    return { status: "already_present" };
+  }
+  const skipped = result.skippedAccounts.find(
+    (account) => account.accountId === accountId,
+  );
+  if (skipped) {
+    return { status: "skipped", reason: skipped.reason };
+  }
+  return { status: "not_reported" };
+}
 
 function isDeepSeekApiServiceAccount(account: CodexAccount): boolean {
   const providerId = (account.api_provider_id || "").trim().toLowerCase();

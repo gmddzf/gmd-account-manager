@@ -7,6 +7,17 @@ All notable changes to GMD Account Manager will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/).
 
 ---
+## [1.3.28] - 2026-08-21
+
+### Added
+
+- **First-time official OAuth imports now join the API Service account pool by default**: the OAuth screen explicitly exposes the Add to API Service toggle and enables it when no prior preference exists. Completion distinguishes newly added, already present, and skipped accounts. Reauthorization does not add an existing account again, and an explicit opt-out remains respected.
+
+### Fixed
+
+- **Follow the latest official authentication behavior so Codex account switches no longer keep using stale credentials**: the current official client's rotated token chain is saved before its credentials are overwritten; `$CODEX_HOME/auth.json` remains the default source, while an explicit `keyring` or `auto` setting prefers the matching `Codex Auth` keychain item. Switches are serialized, unrelated auth fields are preserved, stale account identity is removed, and OAuth token exchange and refresh use the paired `originator: codex_vscode` and `User-Agent: codex_vscode/0.146.0` identity.
+- **Prevent direct account switches and API Service takeover from reporting a misleading success or leaving stale UI state**: direct switches verify the managed account projection and default-instance binding; API Service activation verifies the running service, Codex provider/auth projection, and `__api_service__` binding. When the account or service was switched but Codex App launch fails, the error now says exactly that and the UI reloads authoritative state instead of continuing to show the previous account.
+
 ## [1.3.27] - 2026-08-21
 
 ### Fixed

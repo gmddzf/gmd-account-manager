@@ -627,6 +627,23 @@ fn restart_codex_specified_app_if_enabled(user_config: &config::UserConfig) {
     }
 }
 
+fn verify_codex_managed_projection_account(
+    profile_dir: &Path,
+    expected_account_id: &str,
+) -> Result<(), String> {
+    match codex_account::read_managed_projection_account_id_from_dir(profile_dir) {
+        Some(actual_account_id) if actual_account_id == expected_account_id => Ok(()),
+        Some(actual_account_id) => Err(format!(
+            "Codex 受管凭证校验失败: expected_account_id={}, actual_account_id={}",
+            expected_account_id, actual_account_id
+        )),
+        None => Err(format!(
+            "Codex 受管凭证校验失败: expected_account_id={}, projection_missing=true",
+            expected_account_id
+        )),
+    }
+}
+
 /// 列出所有 Codex 账号
 #[tauri::command]
 pub async fn list_codex_accounts() -> Result<Vec<CodexAccount>, String> {
@@ -796,6 +813,8 @@ pub async fn switch_codex_account(
     // 切换账号（写入 auth.json）
     let switch_started = Instant::now();
     let account = codex_account::switch_account_managed(&account_id).await?;
+    verify_codex_managed_projection_account(&codex_account::get_codex_home(), &account.id)
+        .map_err(|error| format!("账号凭证已写入，但最终校验失败: {}", error))?;
     logger::log_info(&format!(
         "[Codex Switch][Backend] switch_account_managed finished: account_id={}, elapsed_ms={}, total_ms={}",
         account_id,
@@ -837,23 +856,28 @@ pub async fn switch_codex_account(
         } else {
             account.id.clone()
         };
-    if let Err(e) = crate::modules::codex_instance::update_default_settings(
+    let default_settings = crate::modules::codex_instance::update_default_settings(
         Some(Some(default_bind_account_id.clone())),
         None,
         Some(false),
         None,
         None,
-    ) {
-        logger::log_warn(&format!("更新 Codex 默认实例绑定账号失败: {}", e));
-    } else {
-        logger::log_info(&format!(
-            "已同步更新 Codex 默认实例绑定账号: {}",
+    )
+    .map_err(|error| format!("账号已切换，但更新 Codex 默认实例绑定失败: {}", error))?;
+    if default_settings.bind_account_id.as_deref() != Some(default_bind_account_id.as_str())
+        || default_settings.follow_local_account
+    {
+        return Err(format!(
+            "账号已切换，但 Codex 默认实例绑定校验失败: expected_account_id={}",
             default_bind_account_id
         ));
     }
-    if let Err(e) = crate::modules::codex_instance::update_default_app_speed(account_speed) {
-        logger::log_warn(&format!("更新 Codex 默认实例速度失败: {}", e));
-    }
+    logger::log_info(&format!(
+        "已同步更新 Codex 默认实例绑定账号: {}",
+        default_bind_account_id
+    ));
+    crate::modules::codex_instance::update_default_app_speed(account_speed)
+        .map_err(|error| format!("账号已切换，但更新 Codex 默认实例速度失败: {}", error))?;
     logger::log_info(&format!(
         "[Codex Switch][Backend] default settings update finished: account_id={}, elapsed_ms={}, total_ms={}",
         account_id,
@@ -883,6 +907,7 @@ pub async fn switch_codex_account(
         let _ = app.emit("codex:ssh-sync-result", &ssh_sync);
     }
 
+    let mut completion_error = None;
     if user_config.codex_launch_on_switch {
         let launch_started = Instant::now();
         #[cfg(target_os = "macos")]
@@ -903,6 +928,7 @@ pub async fn switch_codex_account(
                         serde_json::json!({ "app": "codex", "retry": { "kind": "default" } }),
                     );
                 }
+                completion_error = Some(format!("账号已切换，但 Codex 启动失败: {}", e));
             }
         }
         logger::log_info(&format!(
@@ -932,6 +958,9 @@ pub async fn switch_codex_account(
         tray_started.elapsed().as_millis(),
         flow_started.elapsed().as_millis()
     ));
+    if let Some(error) = completion_error {
+        return Err(error);
+    }
     Ok(account)
 }
 
@@ -4399,7 +4428,7 @@ pub async fn codex_local_access_activate(
     ));
 
     let default_settings_started = Instant::now();
-    if let Err(e) = crate::modules::codex_instance::update_default_settings(
+    let default_settings = crate::modules::codex_instance::update_default_settings(
         Some(Some(
             crate::modules::codex_instance::CODEX_API_SERVICE_BIND_ACCOUNT_ID.to_string(),
         )),
@@ -4407,14 +4436,17 @@ pub async fn codex_local_access_activate(
         Some(false),
         None,
         None,
-    ) {
-        logger::log_warn(&format!("更新 Codex 默认实例为 API 服务模式失败: {}", e));
-    } else {
-        logger::log_info("已同步更新 Codex 默认实例为 API 服务模式");
+    )
+    .map_err(|error| format!("API 服务已启用，但更新 Codex 默认实例绑定失败: {}", error))?;
+    if default_settings.bind_account_id.as_deref()
+        != Some(crate::modules::codex_instance::CODEX_API_SERVICE_BIND_ACCOUNT_ID)
+        || default_settings.follow_local_account
+    {
+        return Err("API 服务已启用，但 Codex 默认实例绑定校验失败".to_string());
     }
-    if let Err(e) = crate::modules::codex_instance::update_default_app_speed(api_service_speed) {
-        logger::log_warn(&format!("更新 Codex 默认实例 API 服务速度失败: {}", e));
-    }
+    logger::log_info("已同步更新 Codex 默认实例为 API 服务模式");
+    crate::modules::codex_instance::update_default_app_speed(api_service_speed)
+        .map_err(|error| format!("API 服务已启用，但更新 Codex 默认实例速度失败: {}", error))?;
     logger::log_info(&format!(
         "[Codex API Service Switch][Backend] default settings update finished: elapsed_ms={}, total_ms={}",
         default_settings_started.elapsed().as_millis(),
@@ -4443,6 +4475,7 @@ pub async fn codex_local_access_activate(
 
     logger::log_info("API 服务启动模式下跳过 OpenCode / OpenClaw OAuth 同步");
 
+    let mut launch_error = None;
     if user_config.codex_launch_on_switch {
         let launch_started = Instant::now();
         #[cfg(target_os = "macos")]
@@ -4463,6 +4496,10 @@ pub async fn codex_local_access_activate(
                         serde_json::json!({ "app": "codex", "retry": { "kind": "default" } }),
                     );
                 }
+                launch_error = Some(format!(
+                    "API 服务已启用并接管 Codex 配置，但 Codex 启动失败: {}",
+                    e
+                ));
             }
         }
         logger::log_info(&format!(
@@ -4481,6 +4518,9 @@ pub async fn codex_local_access_activate(
         tray_started.elapsed().as_millis(),
         flow_started.elapsed().as_millis()
     ));
+    if let Some(error) = launch_error {
+        return Err(error);
+    }
     Ok(state)
 }
 
