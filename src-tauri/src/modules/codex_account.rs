@@ -1857,7 +1857,26 @@ pub fn get_codex_home() -> PathBuf {
     if let Some(from_env) = resolve_codex_home_from_env() {
         return from_env;
     }
+    if let Some(portable_home) = resolve_portable_codex_home() {
+        return portable_home;
+    }
     dirs::home_dir().expect("无法获取用户主目录").join(".codex")
+}
+
+/// Keep the Windows portable CLI profile on the data drive when the app is
+/// launched from a normal shortcut without a shell environment.
+///
+/// The path is only selected when it already exists, so regular installations
+/// on other machines continue to use the platform default home directory.
+fn resolve_portable_codex_home() -> Option<PathBuf> {
+    #[cfg(target_os = "windows")]
+    {
+        let candidate = PathBuf::from(r"E:\code_cli\codex-home");
+        if candidate.is_dir() {
+            return Some(candidate);
+        }
+    }
+    None
 }
 
 fn resolve_codex_home_from_env() -> Option<PathBuf> {

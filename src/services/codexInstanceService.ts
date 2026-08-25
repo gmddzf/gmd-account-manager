@@ -58,7 +58,7 @@ export async function createInstance(payload: {
   launchMode?: InstanceLaunchMode;
   appSpeed?: CodexAppSpeed;
   copySourceInstanceId: string;
-  initMode?: "copy" | "empty" | "existingDir";
+  initMode?: "copy" | "empty" | "emptyBound" | "existingDir";
 }): Promise<InstanceProfile> {
   return await invoke("codex_create_instance", {
     name: payload.name,

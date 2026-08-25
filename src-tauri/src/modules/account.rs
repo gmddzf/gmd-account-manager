@@ -207,12 +207,31 @@ pub fn resolve_data_dir() -> Result<PathBuf, String> {
     }
 
     let home = dirs::home_dir().ok_or("无法获取用户主目录")?;
+    if let Some(portable_dir) = resolve_portable_data_dir() {
+        return Ok(portable_dir);
+    }
     let dir_name = if is_dev_profile() {
         DEV_DATA_DIR
     } else {
         DATA_DIR
     };
     Ok(home.join(dir_name))
+}
+
+/// Keep the portable Windows installation's account database beside the E:
+/// drive deployment when the app is opened from a normal shortcut.
+///
+/// The directory is selected only when it already exists. Other installations
+/// continue to use the regular per-user data directory.
+fn resolve_portable_data_dir() -> Option<PathBuf> {
+    #[cfg(target_os = "windows")]
+    {
+        let candidate = PathBuf::from(r"E:\GMD账号管理\data");
+        if candidate.is_dir() {
+            return Some(candidate);
+        }
+    }
+    None
 }
 
 pub fn get_data_dir() -> Result<PathBuf, String> {

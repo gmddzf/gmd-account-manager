@@ -6107,7 +6107,10 @@ export function CodexAccountsPage() {
       bindAccountId: draft.bindAccountId,
       launchMode: "cli",
       copySourceInstanceId: "__default__",
-      initMode: "copy",
+      // CLI profiles start empty; only the selected account is projected on
+      // first launch. Copying the default home can replicate several GB of
+      // sessions/logs into every account instance.
+      initMode: "emptyBound",
     });
   };
 

@@ -21,6 +21,8 @@ const CODEX_SHARED_SKILLS_DIR_NAME: &str = "skills";
 const CODEX_SHARED_RULES_DIR_NAME: &str = "rules";
 const CODEX_SHARED_AGENTS_FILE_NAME: &str = "AGENTS.md";
 const CODEX_SHARED_VENDOR_IMPORTS_SKILLS_DIR: &str = "vendor_imports/skills";
+const CODEX_INSTANCES_ROOT_ENV: &str = "COCKPIT_CODEX_INSTANCES_DIR";
+const CODEX_INSTANCES_DIR_NAME: &str = "codex-instances";
 #[cfg(target_os = "windows")]
 const CODEX_SHARED_COPY_MARKER_FILE_NAME: &str = ".cockpit-tools-shared-copy";
 #[cfg(target_os = "windows")]
@@ -162,9 +164,46 @@ pub fn get_default_codex_home() -> Result<PathBuf, String> {
 }
 
 pub fn get_default_instances_root_dir() -> Result<PathBuf, String> {
+    if let Some(configured) = configured_instances_root_dir() {
+        return Ok(configured);
+    }
+
+    // The portable Codex launcher exports CODEX_HOME on the parent process. Keep
+    // managed CLI profiles beside that home so account switching never falls
+    // back to the Windows roaming profile on C:.
+    if let Some(codex_home) = configured_codex_home_from_env() {
+        return Ok(codex_home.join(CODEX_INSTANCES_DIR_NAME));
+    }
+
     Ok(modules::account::get_data_dir()?
         .join("instances")
         .join("codex"))
+}
+
+fn configured_instances_root_dir() -> Option<PathBuf> {
+    let raw = std::env::var(CODEX_INSTANCES_ROOT_ENV).ok()?;
+    let trimmed = raw
+        .trim()
+        .trim_matches(|ch| ch == '"' || ch == '\'')
+        .trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    let path = PathBuf::from(trimmed);
+    path.is_absolute().then_some(path)
+}
+
+fn configured_codex_home_from_env() -> Option<PathBuf> {
+    let raw = std::env::var("CODEX_HOME").ok()?;
+    let trimmed = raw
+        .trim()
+        .trim_matches(|ch| ch == '"' || ch == '\'')
+        .trim();
+    if trimmed.is_empty() {
+        return None;
+    }
+    let path = PathBuf::from(trimmed);
+    path.is_absolute().then_some(path)
 }
 
 fn legacy_hardcoded_instances_root_dir() -> Result<Option<PathBuf>, String> {
@@ -848,7 +887,8 @@ pub fn create_instance(params: CreateInstanceParams) -> Result<InstanceProfile, 
         .as_deref()
         .unwrap_or("copy")
         .to_ascii_lowercase();
-    let create_empty = init_mode == "empty";
+    let create_empty = matches!(init_mode.as_str(), "empty" | "emptybound" | "empty_bound");
+    let bind_empty = matches!(init_mode.as_str(), "emptybound" | "empty_bound");
     let use_existing_dir = init_mode == "existingdir" || init_mode == "existing_dir";
 
     if use_existing_dir {
@@ -918,7 +958,7 @@ pub fn create_instance(params: CreateInstanceParams) -> Result<InstanceProfile, 
         user_data_dir,
         working_dir: params.working_dir,
         extra_args: params.extra_args.trim().to_string(),
-        bind_account_id: if create_empty {
+        bind_account_id: if create_empty && !bind_empty {
             None
         } else {
             params.bind_account_id
