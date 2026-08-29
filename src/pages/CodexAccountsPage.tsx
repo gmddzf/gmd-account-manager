@@ -1318,6 +1318,8 @@ export function CodexAccountsPage() {
   );
   const [refreshingSubscriptionAccountId, setRefreshingSubscriptionAccountId] =
     useState<string | null>(null);
+  const [refreshingTokenAccountId, setRefreshingTokenAccountId] =
+    useState<string | null>(null);
   const [resettingResetCreditAccountId, setResettingResetCreditAccountId] =
     useState<string | null>(null);
   const [resetCreditConfirmAccountId, setResetCreditConfirmAccountId] =
@@ -3139,6 +3141,7 @@ export function CodexAccountsPage() {
     switchAccount,
     refreshQuota,
     refreshSubscriptionInfo,
+    forceRefreshTokens,
     hydrateAccountProfilesIfNeeded,
     updateAccountName,
     updateApiKeyCredentials,
@@ -9640,6 +9643,36 @@ export function CodexAccountsPage() {
     [accountPresentations, t],
   );
 
+  const handleForceRefreshTokens = useCallback(
+    async (accountId: string) => {
+      if (refreshingTokenAccountId) return;
+      setRefreshingTokenAccountId(accountId);
+      try {
+        await forceRefreshTokens(accountId);
+        setMessage({
+          text: t(
+            "codex.oauth.tokenRefresh.success",
+            "OAuth Token 已刷新",
+          ),
+          tone: "success",
+        });
+      } catch (error) {
+        const detail = String(error).replace(/^Error:\s*/, "").trim();
+        console.error("[CodexOAuth] 手动刷新 Token 失败", error);
+        setMessage({
+          text: t("codex.oauth.tokenRefresh.failed", {
+            error: detail || t("common.unknownError", "未知错误"),
+            defaultValue: "Token 刷新失败：{{error}}。请重试或重新授权。",
+          }),
+          tone: "error",
+        });
+      } finally {
+        setRefreshingTokenAccountId(null);
+      }
+    },
+    [forceRefreshTokens, refreshingTokenAccountId, setMessage, t],
+  );
+
   const codexAutoSwitchScopeAccounts = useMemo<AutoSwitchScopeAccount[]>(
     () =>
       accounts
@@ -11858,6 +11891,10 @@ export function CodexAccountsPage() {
       const isSubscriptionRefreshPending =
         refreshingSubscriptionAccountId === account.id ||
         refreshing === account.id;
+      const canForceRefreshTokens =
+        isStandardCodexOAuthAccount(account) &&
+        Boolean(account.tokens?.refresh_token?.trim());
+      const isTokenRefreshPending = refreshingTokenAccountId === account.id;
       return (
         <div
           key={groupKey ? `${groupKey}-${account.id}` : account.id}
@@ -11994,6 +12031,22 @@ export function CodexAccountsPage() {
                   </button>
                 )}
               </span>
+            )}
+            {canForceRefreshTokens && (
+              <button
+                type="button"
+                className="codex-token-refresh-btn"
+                onClick={() => void handleForceRefreshTokens(account.id)}
+                disabled={isTokenRefreshPending}
+                title={t("codex.oauth.tokenRefresh.action", "刷新 Token")}
+                aria-label={t("codex.oauth.tokenRefresh.action", "刷新 Token")}
+              >
+                <RefreshCw
+                  size={12}
+                  className={isTokenRefreshPending ? "loading-spinner" : undefined}
+                />
+                {t("codex.oauth.tokenRefresh.short", "Token")}
+              </button>
             )}
           </div>
           {renderAccountSpeedSelect(account, true)}
@@ -12165,6 +12218,10 @@ export function CodexAccountsPage() {
       const isSubscriptionRefreshPending =
         refreshingSubscriptionAccountId === account.id ||
         refreshing === account.id;
+      const canForceRefreshTokens =
+        isStandardCodexOAuthAccount(account) &&
+        Boolean(account.tokens?.refresh_token?.trim());
+      const isTokenRefreshPending = refreshingTokenAccountId === account.id;
       const resetCreditControls = renderResetCreditControls(account);
       return (
         <div
@@ -12435,7 +12492,8 @@ export function CodexAccountsPage() {
                 )}
               </div>
               {(subscriptionInfo.timestampMs != null ||
-                showSubscriptionRefreshAction) && (
+                showSubscriptionRefreshAction ||
+                canForceRefreshTokens) && (
                 <div className="codex-subscription-footer-side">
                   {subscriptionInfo.timestampMs != null && (
                     <span className="codex-subscription-footer-date">
@@ -12454,6 +12512,22 @@ export function CodexAccountsPage() {
                       aria-label={t("common.refresh", "刷新")}
                     >
                       {t("common.refresh", "刷新")}
+                    </button>
+                  )}
+                  {canForceRefreshTokens && (
+                    <button
+                      type="button"
+                      className="codex-token-refresh-btn"
+                      onClick={() => void handleForceRefreshTokens(account.id)}
+                      disabled={isTokenRefreshPending}
+                      title={t("codex.oauth.tokenRefresh.action", "刷新 Token")}
+                      aria-label={t("codex.oauth.tokenRefresh.action", "刷新 Token")}
+                    >
+                      <RefreshCw
+                        size={12}
+                        className={isTokenRefreshPending ? "loading-spinner" : undefined}
+                      />
+                      {t("codex.oauth.tokenRefresh.short", "Token")}
                     </button>
                   )}
                 </div>
@@ -13575,6 +13649,10 @@ export function CodexAccountsPage() {
       const isSubscriptionRefreshPending =
         refreshingSubscriptionAccountId === account.id ||
         refreshing === account.id;
+      const canForceRefreshTokens =
+        isStandardCodexOAuthAccount(account) &&
+        Boolean(account.tokens?.refresh_token?.trim());
+      const isTokenRefreshPending = refreshingTokenAccountId === account.id;
       const resetCreditControls = renderResetCreditControls(account);
       return (
         <tr
@@ -13795,6 +13873,22 @@ export function CodexAccountsPage() {
                       aria-label={t("common.refresh", "刷新")}
                     >
                       {t("common.refresh", "刷新")}
+                    </button>
+                  )}
+                  {canForceRefreshTokens && (
+                    <button
+                      type="button"
+                      className="codex-token-refresh-btn"
+                      onClick={() => void handleForceRefreshTokens(account.id)}
+                      disabled={isTokenRefreshPending}
+                      title={t("codex.oauth.tokenRefresh.action", "刷新 Token")}
+                      aria-label={t("codex.oauth.tokenRefresh.action", "刷新 Token")}
+                    >
+                      <RefreshCw
+                        size={12}
+                        className={isTokenRefreshPending ? "loading-spinner" : undefined}
+                      />
+                      {t("codex.oauth.tokenRefresh.short", "Token")}
                     </button>
                   )}
                 </div>

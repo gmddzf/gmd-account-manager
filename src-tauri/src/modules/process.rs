@@ -10104,7 +10104,7 @@ pub fn start_codex_with_args(codex_home: &str, extra_args: &[String]) -> Result<
     }
 }
 
-/// 启动 Codex 默认实例（不注入 CODEX_HOME，支持附加参数，支持 macOS / Windows）
+/// 启动 Codex 默认实例（按默认 profile 注入 CODEX_HOME，支持附加参数，支持 macOS / Windows）
 pub fn start_codex_default(extra_args: &[String]) -> Result<u32, String> {
     start_codex_default_internal(extra_args, false)
 }
@@ -10195,14 +10195,42 @@ fn start_codex_default_internal(
             before_probe_started.elapsed().as_millis()
         ));
 
+        let default_codex_home = crate::modules::codex_instance::get_default_codex_home()?;
+        let default_codex_home_string = default_codex_home.to_string_lossy().to_string();
+        let default_app_user_data_dir =
+            crate::modules::codex_instance::get_windows_app_user_data_dir(&default_codex_home)?;
+        std::fs::create_dir_all(&default_app_user_data_dir).map_err(|e| {
+            format!(
+                "创建 Codex Windows 默认实例运行目录失败 ({}): {}",
+                default_app_user_data_dir.to_string_lossy(),
+                e
+            )
+        })?;
+        let default_app_user_data_dir_string =
+            default_app_user_data_dir.to_string_lossy().to_string();
+        crate::modules::logger::log_info(&format!(
+            "[Codex Start] default profile resolved: codex_home={} app_user_data_dir={}",
+            summarize_text_for_process_log(&default_codex_home_string, 96),
+            default_app_user_data_dir_string
+        ));
+
         let app_user_model_id = detect_codex_store_app_user_model_id();
         if let Some(app_user_model_id) = app_user_model_id {
             crate::modules::logger::log_info(&format!(
                 "[Codex Start] 启动策略候选=system-store-entry app_id={}",
                 app_user_model_id
             ));
-            let args = build_codex_default_launch_args(extra_args);
-            match launch_codex_via_store_app_user_model_id(&app_user_model_id, None, None, &args) {
+            let mut args = build_codex_default_launch_args(extra_args);
+            args.push(format!(
+                "--user-data-dir={}",
+                default_app_user_data_dir_string
+            ));
+            match launch_codex_via_store_app_user_model_id(
+                &app_user_model_id,
+                Some(&default_codex_home_string),
+                Some(&default_app_user_data_dir_string),
+                &args,
+            ) {
                 Ok(()) => {
                     crate::modules::logger::log_info(&format!(
                         "[Codex Start] 已通过系统入口启动 Codex: {}",
@@ -10291,11 +10319,18 @@ fn start_codex_default_internal(
 
         let launch_path = resolve_codex_launch_path()?;
         crate::modules::logger::log_info(&format!(
-            "[Codex Start] 启动策略=exe-path launch_path={}",
-            launch_path.to_string_lossy()
+            "[Codex Start] 启动策略=exe-path launch_path={} codex_home={} app_user_data_dir={}",
+            launch_path.to_string_lossy(),
+            summarize_text_for_process_log(&default_codex_home_string, 96),
+            default_app_user_data_dir_string
         ));
         let mut cmd = Command::new(&launch_path);
         apply_managed_proxy_env_to_command(&mut cmd);
+        cmd.env("CODEX_HOME", &default_codex_home_string);
+        cmd.env(
+            "CODEX_ELECTRON_USER_DATA_PATH",
+            &default_app_user_data_dir_string,
+        );
         if should_detach_child() {
             cmd.creation_flags(CREATE_NEW_PROCESS_GROUP | DETACHED_PROCESS);
             cmd.stdin(Stdio::null())

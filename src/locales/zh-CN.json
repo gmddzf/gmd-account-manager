@@ -2158,7 +2158,13 @@
       "portInUseAction": "关闭占用端口并重试",
       "timeout": "授权超时，请点击",
       "timeoutRetry": "刷新授权链接",
-      "reauthEmailLabel": "重新授权账号"
+      "reauthEmailLabel": "重新授权账号",
+      "tokenRefresh": {
+        "action": "刷新 Token",
+        "short": "Token",
+        "success": "OAuth Token 已刷新",
+        "failed": "Token 刷新失败：{{error}}。请重试或重新授权。"
+      }
     },
     "token": {
       "desc": "粘贴 auth.json、Agent Identity、账号 JSON、Sub2API JSON、accessToken、个人访问令牌 at-… 或 refresh_token。",

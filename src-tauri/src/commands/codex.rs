@@ -792,6 +792,24 @@ pub async fn refresh_codex_account_profile(account_id: String) -> Result<CodexAc
     codex_account::refresh_account_profile(&account_id).await
 }
 
+/// 强制刷新 Codex OAuth 账号的访问令牌。
+///
+/// 与后台按需刷新不同，这个命令明确绕过新鲜度判断，供账号卡片上的
+/// “刷新 Token”操作使用。刷新完成后同步托盘菜单，避免托盘和账号页显示不一致。
+#[tauri::command]
+pub async fn force_refresh_codex_tokens(
+    app: AppHandle,
+    account_id: String,
+) -> Result<CodexAccount, String> {
+    let account = codex_account::force_refresh_managed_account(
+        &account_id,
+        "用户手动强制刷新 Codex OAuth Token",
+    )
+    .await?;
+    let _ = crate::modules::tray::update_tray_menu(&app);
+    Ok(account)
+}
+
 /// 切换 Codex 账号（包含 token 刷新检查）
 #[tauri::command]
 pub async fn switch_codex_account(

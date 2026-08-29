@@ -85,6 +85,11 @@ export async function refreshCodexAccountProfile(accountId: string): Promise<Cod
   return await invoke('refresh_codex_account_profile', { accountId });
 }
 
+/** 强制刷新 Codex OAuth Token（不受本地新鲜度缓存影响） */
+export async function forceRefreshCodexTokens(accountId: string): Promise<CodexAccount> {
+  return await invoke('force_refresh_codex_tokens', { accountId });
+}
+
 /** 切换 Codex 账号 */
 export async function switchCodexAccount(
   accountId: string,

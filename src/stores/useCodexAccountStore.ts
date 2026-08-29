@@ -119,6 +119,7 @@ interface CodexAccountState {
   deleteAccounts: (accountIds: string[]) => Promise<void>;
   refreshQuota: (accountId: string) => Promise<CodexQuota>;
   refreshSubscriptionInfo: (accountId: string) => Promise<CodexAccount>;
+  forceRefreshTokens: (accountId: string) => Promise<CodexAccount>;
   refreshAllQuotas: () => Promise<number>;
   hydrateAccountProfilesIfNeeded: (accountIds?: string[]) => Promise<void>;
   importFromLocal: () => Promise<CodexAccount>;
@@ -391,6 +392,13 @@ export const useCodexAccountStore = create<CodexAccountState>((set, get) => ({
 
   refreshSubscriptionInfo: async (accountId: string) => {
     const account = await codexService.refreshCodexSubscriptionInfo(accountId);
+    await get().fetchAccounts();
+    await get().fetchCurrentAccount();
+    return account;
+  },
+
+  forceRefreshTokens: async (accountId: string) => {
+    const account = await codexService.forceRefreshCodexTokens(accountId);
     await get().fetchAccounts();
     await get().fetchCurrentAccount();
     return account;
