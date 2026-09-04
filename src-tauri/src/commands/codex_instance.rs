@@ -531,27 +531,18 @@ async fn repair_session_visibility_for_selected_instance(
     instance_name: &str,
     data_dir: &Path,
 ) -> Result<(), String> {
-    let instance_id = instance_id.to_string();
-    let instance_name = instance_name.to_string();
-    let data_dir = data_dir.to_path_buf();
-    tauri::async_runtime::spawn_blocking(move || {
-        modules::codex_session_visibility::repair_session_visibility_quick_for_instance(
-            &instance_id,
-            &instance_name,
-            &data_dir,
-        )
-        .map(|_| ())
-        .map_err(|error| {
-            format!(
-                "同步修复当前 Codex 实例的历史会话可见性失败 ({} / {}): {}",
-                instance_name,
-                data_dir.display(),
-                error
-            )
-        })
-    })
-    .await
-    .map_err(|error| format!("等待 Codex 会话可见性修复任务失败: {}", error))?
+    // Startup must never copy or rewrite the user's session history. A former
+    // automatic repair could back up large archived rollouts under CODEX_HOME,
+    // exhaust the system drive, then abort an otherwise valid account switch.
+    // The explicit session-visibility repair command remains available for
+    // maintenance, but launch only operates on the selected profile settings.
+    modules::logger::log_info(&format!(
+        "[Codex Session Visibility] skip automatic launch repair: instance_id={}, instance_name={}, data_dir={}",
+        instance_id,
+        instance_name,
+        data_dir.display()
+    ));
+    Ok(())
 }
 
 #[cfg(test)]
@@ -836,7 +827,10 @@ fn normalize_cli_model(model: Option<String>) -> Result<Option<String>, String> 
     if model.len() > 200 {
         return Err("Codex CLI 模型标识不能超过 200 个字符".to_string());
     }
-    if model.chars().any(|ch| ch.is_control() || ch.is_whitespace()) {
+    if model
+        .chars()
+        .any(|ch| ch.is_control() || ch.is_whitespace())
+    {
         return Err("Codex CLI 模型标识不能包含空格或控制字符".to_string());
     }
     Ok(Some(model.to_string()))
