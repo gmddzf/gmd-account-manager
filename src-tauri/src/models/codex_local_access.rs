@@ -103,7 +103,7 @@ fn default_access_scope_for_existing_config() -> CodexLocalAccessScope {
 }
 
 fn default_restrict_free_accounts() -> bool {
-    true
+    false
 }
 
 fn default_model_pricing_version() -> u64 {
@@ -499,6 +499,10 @@ pub struct CodexLocalAccessCollection {
     pub disable_cooling: bool,
     #[serde(default = "default_restrict_free_accounts")]
     pub restrict_free_accounts: bool,
+    /// Tracks the one-time migration from the historical generated default,
+    /// which rejected regular Free OAuth accounts from the API service pool.
+    #[serde(default)]
+    pub free_account_support_default_migrated: bool,
     #[serde(default = "default_true")]
     pub debug_logs: bool,
     #[serde(default)]

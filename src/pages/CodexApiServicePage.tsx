@@ -2203,7 +2203,7 @@ export function CodexApiServicePage() {
     }
     const accountIds = reconcileCodexApiKeyScopeAccountIds({
       accounts: localAccessAccounts,
-      restrictFreeAccounts: collection?.restrictFreeAccounts ?? true,
+      restrictFreeAccounts: collection?.restrictFreeAccounts ?? false,
       persistedAccountIds: apiKey.accountIds ?? [],
       draftAccountIds: draft.accountIds,
     });
@@ -4187,7 +4187,7 @@ export function CodexApiServicePage() {
                 );
                 const keySelectableAccounts = selectCodexApiKeyScopeAccounts({
                   accounts: localAccessAccounts,
-                  restrictFreeAccounts: collection?.restrictFreeAccounts ?? true,
+                  restrictFreeAccounts: collection?.restrictFreeAccounts ?? false,
                   scopedAccountIds: apiKey.accountIds ?? [],
                 });
                 const keySelectableAccountIds = keySelectableAccounts.map(

@@ -392,7 +392,7 @@ export function CodexLocalAccessModal({
   const [filterTypes, setFilterTypes] = useState<string[]>([]);
   const [tagFilter, setTagFilter] = useState<string[]>([]);
   const [groupFilter, setGroupFilter] = useState<string[]>([]);
-  const [restrictFreeAccounts, setRestrictFreeAccounts] = useState(true);
+  const [restrictFreeAccounts, setRestrictFreeAccounts] = useState(false);
   const [sessionAffinity, setSessionAffinity] = useState(true);
   const [sessionAffinityTtlSeconds, setSessionAffinityTtlSeconds] =
     useState("3600");
@@ -626,7 +626,7 @@ export function CodexLocalAccessModal({
 
     return summary;
   }, [collection?.accountIds, localAccessAccounts, state?.accountHealth]);
-  const initialRestrictFreeAccounts = collection?.restrictFreeAccounts ?? true;
+  const initialRestrictFreeAccounts = collection?.restrictFreeAccounts ?? false;
   const initialSessionAffinity = collection?.sessionAffinity ?? true;
   const initialSessionAffinityTtlSeconds = Math.round(
     (collection?.sessionAffinityTtlMs ?? 60 * 60 * 1000) / 1000,
@@ -1117,7 +1117,7 @@ export function CodexLocalAccessModal({
   const selectionDirty = useMemo(
     () =>
       !areSetsEqual(selected, new Set(normalizedInitialSelectedIds)) ||
-      restrictFreeAccounts !== (collection?.restrictFreeAccounts ?? true) ||
+      restrictFreeAccounts !== (collection?.restrictFreeAccounts ?? false) ||
       sessionAffinity !== initialSessionAffinity ||
       sessionAffinityTtlSeconds !== String(initialSessionAffinityTtlSeconds) ||
       !areSetsEqual(currentBackupAccountIds, initialBackupAccountIds) ||

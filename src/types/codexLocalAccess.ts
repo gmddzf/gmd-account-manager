@@ -143,6 +143,7 @@ export interface CodexLocalAccessCollection {
   timeoutPresets: CodexLocalAccessTimeoutPreset[];
   disableCooling: boolean;
   restrictFreeAccounts: boolean;
+  freeAccountSupportDefaultMigrated?: boolean;
   boundOauthAccountId?: string | null;
   boundOauthQuotaReserve?: CodexLocalAccessOAuthQuotaReserve | null;
   accountIds: string[];

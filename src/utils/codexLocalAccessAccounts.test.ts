@@ -66,7 +66,7 @@ test("eligible accounts can be added when they are not API service members", () 
   );
 });
 
-test("direct add follows the API service free-account restriction", () => {
+test("Free OAuth accounts can join API service unless the optional restriction is enabled", () => {
   const free = account({ plan_type: "free" });
 
   assert.equal(canAddCodexAccountToLocalAccess(free, new Set(), true), false);

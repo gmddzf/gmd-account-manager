@@ -15364,6 +15364,19 @@ fn migrate_session_affinity_default_enabled(collection: &mut CodexLocalAccessCol
     true
 }
 
+/// Before v1.3.32 every generated collection silently rejected regular Free
+/// OAuth accounts. Migrate that generated default once, while retaining the
+/// visible per-pool restriction switch for users who explicitly enable it.
+fn migrate_free_account_support_default(collection: &mut CodexLocalAccessCollection) -> bool {
+    if collection.free_account_support_default_migrated {
+        return false;
+    }
+
+    collection.restrict_free_accounts = false;
+    collection.free_account_support_default_migrated = true;
+    true
+}
+
 fn sanitize_collection(
     collection: &mut CodexLocalAccessCollection,
 ) -> Result<(bool, HashSet<String>), String> {
@@ -15396,6 +15409,7 @@ fn sanitize_collection_structure(
         changed = true;
     }
     changed |= migrate_session_affinity_default_enabled(collection);
+    changed |= migrate_free_account_support_default(collection);
     changed |= normalize_collection_api_keys(collection);
     if collection.created_at <= 0 {
         collection.created_at = now_ms();
@@ -15655,7 +15669,8 @@ async fn ensure_runtime_loaded_without_start_with_profile_restore(
                 active_timeout_preset_id: "long_wait".to_string(),
                 timeout_presets: Vec::new(),
                 disable_cooling: false,
-                restrict_free_accounts: true,
+                restrict_free_accounts: false,
+                free_account_support_default_migrated: true,
                 debug_logs: true,
                 immediate_sse_response: false,
                 max_concurrent_image_requests: 1,
@@ -17114,7 +17129,8 @@ fn new_empty_local_access_collection() -> Result<CodexLocalAccessCollection, Str
         active_timeout_preset_id: BUILTIN_TIMEOUT_PRESET_LONG_WAIT_ID.to_string(),
         timeout_presets: Vec::new(),
         disable_cooling: false,
-        restrict_free_accounts: true,
+        restrict_free_accounts: false,
+        free_account_support_default_migrated: true,
         debug_logs: true,
         immediate_sse_response: false,
         max_concurrent_image_requests: 1,
@@ -20210,7 +20226,8 @@ fn new_local_access_collection() -> Result<CodexLocalAccessCollection, String> {
         active_timeout_preset_id: BUILTIN_TIMEOUT_PRESET_LONG_WAIT_ID.to_string(),
         timeout_presets: Vec::new(),
         disable_cooling: false,
-        restrict_free_accounts: true,
+        restrict_free_accounts: false,
+        free_account_support_default_migrated: true,
         debug_logs: true,
         immediate_sse_response: false,
         max_concurrent_image_requests: 1,
@@ -20434,7 +20451,7 @@ pub async fn append_local_access_accounts(
     let restrict_free_accounts = existing_collection
         .as_ref()
         .map(|collection| collection.restrict_free_accounts)
-        .unwrap_or(true);
+        .unwrap_or(false);
     let accounts = codex_account::list_accounts_checked()?;
     let current_account_ids = existing_collection
         .as_ref()
@@ -27534,7 +27551,8 @@ mod tests {
             active_timeout_preset_id: "long_wait".to_string(),
             timeout_presets: Vec::new(),
             disable_cooling: false,
-            restrict_free_accounts: true,
+            restrict_free_accounts: false,
+            free_account_support_default_migrated: true,
             debug_logs: true,
             immediate_sse_response: false,
             max_concurrent_image_requests: 1,
@@ -29358,6 +29376,35 @@ wire_api = "responses"
                 ("missing", "not_found"),
             ]
         );
+    }
+
+    #[test]
+    fn free_oauth_accounts_are_accepted_when_the_optional_restriction_is_disabled() {
+        let free = test_account_with_plan("free");
+
+        let (next_ids, synced_ids, added_ids, skipped) = append_eligible_local_access_account_ids(
+            &[],
+            vec![free.id.clone()],
+            &[free.clone()],
+            false,
+        );
+
+        assert_eq!(next_ids, vec![free.id.clone()]);
+        assert_eq!(synced_ids, vec![free.id.clone()]);
+        assert_eq!(added_ids, vec![free.id]);
+        assert!(skipped.is_empty());
+    }
+
+    #[test]
+    fn existing_collection_migrates_to_allow_free_oauth_accounts_once() {
+        let mut collection = test_local_access_collection(Vec::new());
+        collection.restrict_free_accounts = true;
+        collection.free_account_support_default_migrated = false;
+
+        assert!(super::migrate_free_account_support_default(&mut collection));
+        assert!(!collection.restrict_free_accounts);
+        assert!(collection.free_account_support_default_migrated);
+        assert!(!super::migrate_free_account_support_default(&mut collection));
     }
 
     #[test]

@@ -4105,7 +4105,7 @@ pub async fn codex_local_access_save_accounts(
 ) -> Result<CodexLocalAccessState, String> {
     codex_local_access::save_local_access_accounts(
         account_ids,
-        restrict_free_accounts.unwrap_or(true),
+        restrict_free_accounts.unwrap_or(false),
         backup_account_ids,
         preferred_account_ids,
         session_affinity,

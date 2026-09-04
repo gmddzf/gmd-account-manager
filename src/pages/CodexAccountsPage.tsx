@@ -6979,7 +6979,7 @@ export function CodexAccountsPage() {
           const nextState =
             await codexLocalAccessService.saveCodexLocalAccessAccounts(
               nextLocalAccessAccountIds,
-              localAccessCollection?.restrictFreeAccounts ?? true,
+              localAccessCollection?.restrictFreeAccounts ?? false,
             );
           setLocalAccessState(nextState);
           if (importedIds.length > 0) {
@@ -10101,7 +10101,7 @@ export function CodexAccountsPage() {
       canAddCodexAccountToLocalAccess(
         account,
         localAccessAccountIdSet,
-        localAccessCollection?.restrictFreeAccounts ?? true,
+        localAccessCollection?.restrictFreeAccounts ?? false,
       ),
     [
       localAccessAccountIdSet,
@@ -10224,7 +10224,7 @@ export function CodexAccountsPage() {
     ) => {
       setLocalAccessSaving(true);
       try {
-        const restrictFreeAccounts = options?.restrictFreeAccounts ?? true;
+        const restrictFreeAccounts = options?.restrictFreeAccounts ?? false;
         const filteredAccountIds =
           accountIds.length === 0
             ? []
